@@ -51,8 +51,15 @@ services:
     # Not published to the host by default (avoids clashing with `./mvnw spring-boot:run` on 8080);
     # reach it through the edge proxy on port 8000.
     healthcheck:
-      # The eclipse-temurin:21-jre-noble runtime image ships curl.
-      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
+      # eclipse-temurin:25-jre-noble ships neither curl nor wget, so bash's /dev/tcp sends the request.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/8080
+          && printf 'GET /actuator/health/readiness HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3
+          && head -n 1 <&3 | grep -q ' 200 '
       interval: 10s
       timeout: 3s
       retries: 12

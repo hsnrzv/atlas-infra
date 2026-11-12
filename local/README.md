@@ -63,12 +63,12 @@ Copy `local/.env.example` to `local/.env` (git-ignored) to override:
 | | Backend (`atlas-microservices/Dockerfile`) | Frontend (`atlas/Dockerfile`) |
 |---|---|---|
 | Location | repository root | repository root |
-| Runtime base | `eclipse-temurin:21-jre-noble` | `nginxinc/nginx-unprivileged:1.30-alpine` |
+| Runtime base | `eclipse-temurin:25-jre-noble` | `nginxinc/nginx-unprivileged:1.30-alpine` |
 | Port | `8080` | `8080` |
 | Health | `/actuator/health/{liveness,readiness}` | `GET /healthz` → 200 |
 | User | numeric non-root UID/GID `10001` | image default `101` (nginx) |
 | Filesystem | writes only to `/tmp` (read-only root FS in Kubernetes) | writes only to `/tmp` (and `/var/cache/nginx`) |
-| Tools for health checks | `curl` (present in the base image) | `curl` (present in the base image) |
+| Tools for health checks | `bash` (`/dev/tcp`; Temurin 25 images ship neither `curl` nor `wget`) | `curl` (present in the base image) |
 | Behaviour | reads `SPRING_PROFILES_ACTIVE` and `SPRING_DATASOURCE_*`; graceful shutdown on SIGTERM | SPA fallback to `index.html`; no upstream proxying (the edge/Ingress routes `/api`) |
 
 ## Future: local identity provider (Phase 9)
