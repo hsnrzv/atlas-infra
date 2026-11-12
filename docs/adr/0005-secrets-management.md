@@ -40,7 +40,10 @@ find their credentials.
 ## Consequences
 
 - Rotation = update the value in Key Vault; ESO refreshes the Secret; restart the backend (or add a reloader later).
-- Key Vault cost at this scale is below 1 €/month (0.0269 € per 10,000 operations, retrieved 2026-11-12).
+- Key Vault cost at this scale is below 1 €/month (0.0269 € per 10,000 operations, retrieved 2026-11-12). A free
+  account adds 10,000 free operations per month for 12 months ([ADR-0009](0009-azure-services-and-free-tier.md)).
+  ESO reads each referenced key once per refresh: about 730 reads per key per month at `refreshInterval: 1h`. Use
+  `6h` unless faster rotation is needed; either way the cost stays in cents.
 - The cluster needs ESO installed and upgraded (pinned version at bootstrap).
 - Until this is implemented, backend pods in a cluster stay pending on the missing Secret — intentionally there is no
   fallback to committed credentials.

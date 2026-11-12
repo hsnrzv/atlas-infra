@@ -73,9 +73,10 @@ Copy `local/.env.example` to `local/.env` (git-ignored) to override:
 
 ## Future: local identity provider (Phase 9)
 
-Authentication is Phase 9 and the identity provider is an open decision (project-instruction §21, item 1). When it is
-decided, an optional Keycloak service may be added under a Compose profile (`docker compose --profile auth up`). A
-commented sketch is at the bottom of `compose.yaml`; it is intentionally not active.
+Authentication is Phase 9. The deployed identity provider is Microsoft Entra External ID (owner decision of
+2026-11-12, project-instruction §21 item 1). For offline full-stack auth work, an optional local Keycloak test IdP may
+be added under a Compose profile (`docker compose --profile auth up`). A commented sketch is at the bottom of
+`compose.yaml`; it is intentionally not active.
 
 ## Troubleshooting
 

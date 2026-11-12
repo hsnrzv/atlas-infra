@@ -1,6 +1,9 @@
 # Plan: Infrastructure and CI/CD (atlas-infra)
 
-- Status: **Phase 0 plan + Phase 1 foundations delivered (2026-11-12)**. Awaiting owner review.
+- Status: **Phase 0 plan + Phase 1 foundations delivered (2026-11-12)**. Platform, database, identity provider and
+  Azure service list decided by the owner on 2026-11-12 ([ADR-0003](../adr/0003-kubernetes-platform.md),
+  [ADR-0004](../adr/0004-database-hosting.md), [ADR-0009](../adr/0009-azure-services-and-free-tier.md)); the other
+  Proposed ADRs await review.
 - Owner: @hsnrzv. Author: platform engineering.
 - Source of truth: `atlas/project-instruction.md` §0, §9.4–9.6, §13, §15, §16, §17.4, §18, §19, §21, §22. Also the
   cross-repo setup contract of 2026-11-12.
@@ -61,14 +64,18 @@
 **Out of scope here:**
 - application code, Dockerfiles and application CI implementation. These are owned by `atlas` and
   `atlas-microservices`. This plan states only the expectations on them.
-- identity provider selection (§21 item 1, owned by the cross-repo roadmap; it affects Phase 9 here).
+- identity provider selection (§21 item 1, owned by the cross-repo roadmap; decided 2026-11-12: Microsoft Entra
+  External ID). It affects Phase 9 here.
 - creating any cloud resource in Phase 0/1.
 
 ## Assumptions
 
 - Single owner/operator, single user, low traffic. There is no availability SLA requirement until the owner sets one.
-- Azure is the target cloud (project-instruction §15.2). The region and subscription/account type are open. The cost
-  data supports **Germany West Central** ([COST-COMPARISON.md](../architecture/COST-COMPARISON.md)).
+- Azure is the target cloud (project-instruction §15.2).
+  - Account: a free account created at the start of Phase 3 and upgraded to pay-as-you-go within the 30-day credit
+    period ([ADR-0009](../adr/0009-azure-services-and-free-tier.md)).
+  - Region: **Germany West Central** is the Proposed default, supported by the cost data
+    ([COST-COMPARISON.md](../architecture/COST-COMPARISON.md)).
 - Argo CD GitOps is mandatory, so Kubernetes is required (§15.2).
 - Images are published to GHCR under `ghcr.io/hsnrzv/atlas-{frontend,backend}` (contract).
 - Backend contract:
@@ -88,48 +95,54 @@
 | Environment | Purpose (§15.1) | Runs on | Namespace | Database | Sync | Exposure |
 |---|---|---|---|---|---|---|
 | `local` | developer machine, integration of all parts | Docker Compose (`local/compose.yaml`) | — | `postgres:18.6-alpine` container, password `atlas` (local only) | — | `127.0.0.1` only |
-| `dev` | shared integration of every `main` commit | non-prod k3s VM (proposed) | `atlas-dev` | non-prod Flexible Server, database `atlas_dev` | Argo CD automated (prune + self-heal) | allow-listed IPs or tunnel until Phase 9 |
-| `staging` | release candidates, E2E acceptance (Phase 4 exit) | non-prod k3s VM (proposed) | `atlas-staging` | non-prod Flexible Server, database `atlas_staging` | Argo CD manual | allow-listed IPs or tunnel until Phase 9 |
-| `prod` | user data | separate prod k3s VM (proposed, Phase 9) | `atlas-prod` | prod Flexible Server, database `atlas` | Argo CD manual | public HTTPS, authentication required |
+| `dev` | shared integration of every `main` commit | the k3s VM ([ADR-0003](../adr/0003-kubernetes-platform.md)) | `atlas-dev` | non-prod Flexible Server, database `atlas_dev` | Argo CD automated (prune + self-heal) | allow-listed IPs or tunnel until Phase 9 |
+| `staging` | release candidates, E2E acceptance (Phase 4 exit) | the k3s VM | `atlas-staging` | non-prod Flexible Server, database `atlas_staging` | Argo CD manual | allow-listed IPs or tunnel until Phase 9 |
+| `prod` | user data | the same k3s VM, from Phase 9 (accepted risk, ADR-0003) | `atlas-prod` | prod Flexible Server, database `atlas` | Argo CD manual | public HTTPS, authentication required |
 
-- `dev` and `staging` share one cluster as namespaces. This is a documented cost trade-off: namespaces are
-  organisational boundaries, not a complete security boundary (§15.1).
-- Prod gets its own VM by default ([ADR-0003](../adr/0003-kubernetes-platform.md)).
+- `dev`, `staging` and (from Phase 9) `prod` share one cluster as namespaces. This is a documented cost trade-off
+  that the owner accepted on 2026-11-12: namespaces are organisational boundaries, not a complete security boundary
+  (§15.1).
+- Prod is isolated where it matters most, and a separate prod VM remains the upgrade path
+  ([ADR-0003](../adr/0003-kubernetes-platform.md)):
+  - its own PostgreSQL server and Key Vault;
+  - manual sync;
+  - from Phase 9, a ResourceQuota on the non-prod namespaces and a higher PriorityClass for prod.
 - Every namespace has the Pod Security Admission `restricted` profile and a default-deny ingress NetworkPolicy.
 
 ```mermaid
 flowchart LR
-  dev_user["Owner (browser / mobile)"] -->|HTTPS| ing_np
-  subgraph nonprod["Non-prod VM: k3s (proposed)"]
-    ing_np["Traefik Ingress"] --> fe_dev["atlas-dev: frontend"] & be_dev["atlas-dev: backend"]
-    ing_np --> fe_stg["atlas-staging: frontend"] & be_stg["atlas-staging: backend"]
-    argo_np["Argo CD"]
+  dev_user["Owner (browser / mobile)"] -->|HTTPS| ing
+  dev_user -. "sign-in (Phase 9)" .-> idp["Microsoft Entra External ID"]
+  subgraph vm["k3s VM Standard_B2as_v2 (ADR-0003)"]
+    ing["Traefik Ingress"] --> fe_dev["atlas-dev: frontend"] & be_dev["atlas-dev: backend"]
+    ing --> fe_stg["atlas-staging: frontend"] & be_stg["atlas-staging: backend"]
+    ing --> fe_p["atlas-prod: frontend<br/>(Phase 9)"] & be_p["atlas-prod: backend<br/>(Phase 9)"]
+    argo["Argo CD"]
   end
-  subgraph prodvm["Prod VM: k3s (proposed, Phase 9)"]
-    ing_p["Traefik Ingress"] --> fe_p["atlas-prod: frontend"] & be_p["atlas-prod: backend"]
-    argo_p["Argo CD"]
-  end
-  be_dev & be_stg --> pg_np[("PostgreSQL Flexible Server (non-prod)")]
-  be_p --> pg_p[("PostgreSQL Flexible Server (prod)")]
-  argo_np & argo_p -->|pull| git["GitHub: atlas-infra"]
-  nonprod & prodvm -->|pull images| ghcr["GHCR"]
-  kv["Azure Key Vault"] -.->|External Secrets| nonprod & prodvm
+  be_dev & be_stg --> pg_np[("PostgreSQL Flexible Server B1ms (non-prod)")]
+  be_p --> pg_p[("PostgreSQL Flexible Server B1ms (prod, Phase 9)")]
+  argo -->|pull| git["GitHub: atlas-infra"]
+  vm -->|pull images| ghcr["GHCR"]
+  kv["Azure Key Vault (non-prod, prod)"] -.->|External Secrets| vm
 ```
 
 ## Infrastructure components
 
 | Component (§15.3) | Proposed choice | Status 2026-11-12 | Decision record |
 |---|---|---|---|
-| Kubernetes cluster | k3s on Azure VM: B2as_v2 non-prod, D2as_v5 prod | Proposed; not created | [ADR-0003](../adr/0003-kubernetes-platform.md) |
+| Azure account | free account, upgraded to pay-as-you-go within 30 days; budget first | Accepted; not created (Phase 3) | [ADR-0009](../adr/0009-azure-services-and-free-tier.md) |
+| Kubernetes cluster | k3s on one Azure VM Standard_B2as_v2 for dev, staging and prod (namespaces) | Accepted; not created | [ADR-0003](../adr/0003-kubernetes-platform.md) |
 | Argo CD | upstream Argo CD (latest release v3.6.1 on 2026-11-04), version pinned at bootstrap | AppProject and Applications written, not applied | [ADR-0002](../adr/0002-gitops-argocd-kustomize-separate-infra-repo.md) (Accepted) |
 | Ingress controller + TLS | Traefik bundled with k3s; cert-manager (v1.21.3) with ACME DNS-01 | Ingress manifests written; controller and issuer Proposed | [§ TLS and ingress](#tls-and-ingress) |
 | Frontend serving | nginx-unprivileged container behind the same Ingress | manifests written | [ADR-0006](../adr/0006-frontend-hosting.md) |
 | Backend | Spring Boot container | manifests written | — |
-| PostgreSQL | Azure Database for PostgreSQL Flexible Server, B1ms, PostgreSQL 18; no `apps/postgres/` | Proposed | [ADR-0004](../adr/0004-database-hosting.md) |
+| PostgreSQL | Azure Database for PostgreSQL Flexible Server, B1ms, PostgreSQL 18: non-prod server (free quota in year 1) and prod server; no `apps/postgres/` | Accepted; not created | [ADR-0004](../adr/0004-database-hosting.md) |
 | Secret management | External Secrets Operator (v2.15.0) + Azure Key Vault | Proposed; Secret names and keys fixed | [ADR-0005](../adr/0005-secrets-management.md) |
 | Container registry | GHCR | Proposed; sibling workflows build but do not push | [ADR-0007](../adr/0007-image-publishing-and-promotion.md) |
 | Blob storage | General Purpose v2, Cool tier, for weekly prod `pg_dump` | Proposed (Phase 9) | [ADR-0004](../adr/0004-database-hosting.md) |
-| Metrics/logging | stdout JSON logs + `kubectl logs`/`kubectl top`; no paid ingestion until decided | Proposed | [§ Observability](#observability-at-minimal-cost) |
+| Metrics/logging | stdout JSON logs + `kubectl logs`/`kubectl top`; Azure Monitor platform metrics and a few alerts; optional Log Analytics within the 5 GB free quota | Proposed | [§ Observability](#observability-at-minimal-cost) |
+| DNS | Azure DNS public zone (records, DNS-01) + Private DNS zone (PostgreSQL private access), ≈ 0.45 €/month each | Accepted; domain open | [ADR-0009](../adr/0009-azure-services-and-free-tier.md) |
+| Identity provider | Microsoft Entra External ID (external tenant, free up to 50,000 MAU, sign-up disabled) | Accepted; not created (Phase 4–9) | `atlas-microservices` ADR-0005, [ADR-0009](../adr/0009-azure-services-and-free-tier.md) |
 
 ## GitOps structure
 
@@ -190,7 +203,8 @@ placeholder.
   by the Ingress; probes are in-cluster only. The local edge proxy additionally exposes `/actuator/health` for
   convenience, which is a documented difference.
 - **Hosts:** `dev.atlas.example.com`, `staging.atlas.example.com`, `atlas.example.com` are placeholders. The domain is
-  an open decision. DNS zone and domain costs are excluded from the cost comparison and still to verify.
+  an open decision. The Azure DNS zone costs ≈ 0.45 €/month; the domain is bought from an external registrar
+  ([ADR-0009](../adr/0009-azure-services-and-free-tier.md)).
 - **Controller:** Traefik bundled with k3s (proposed). `ingressClassName` stays unset, so the cluster default class is
   used, until ADR-0003 is accepted.
 - **Certificates (Proposed):** cert-manager with Let's Encrypt.
@@ -220,8 +234,9 @@ starts four services:
 Ports are overridable (`ATLAS_DB_PORT`, `ATLAS_EDGE_PORT`). Validated end to end on 2026-11-12; see the
 [runbook](../runbooks/local-development.md).
 
-A local Keycloak (compose profile `auth`) is sketched as a comment only. It becomes active in Phase 9 if the identity
-provider decision (§21 item 1) selects an OIDC flow that needs it.
+A local Keycloak (compose profile `auth`) is sketched as a comment only. The deployed identity provider is Microsoft
+Entra External ID (decided 2026-11-12). Keycloak stays an optional local test IdP for offline full-stack auth work in
+Phase 9.
 
 ## CI/CD workflows across the three repositories
 
@@ -359,15 +374,20 @@ exception, recorded in the PR and in the scanner's ignore file with an expiry da
 ## Observability at minimal cost
 
 - **Logs:** structured JSON to stdout outside the `local` profile (backend contract), read with `kubectl logs`.
-  Shipping logs to Azure Monitor/Log Analytics is **not** planned until its ingestion cost is checked; that cost is
-  excluded from the comparison and still to verify.
+  - Log Analytics ingests the first 5 GB per month free, then 2.68 €/GB
+    ([ADR-0009](../adr/0009-azure-services-and-free-tier.md)).
+  - An optional workspace with a 0.15 GB daily cap may collect PostgreSQL and activity logs.
+  - Container logs are not shipped until there is a concrete need.
 - **Metrics:** `kubectl top` via metrics-server. k3s deploys it as a packaged component, alongside coredns, traefik
   and local-storage ([k3s packaged components](https://docs.k3s.io/installation/packaged-components), accessed
   2026-11-12).
 - **Alerting:**
   - Argo CD sync and health status, with Argo CD notifications to e-mail as an optional Phase 9 item;
   - Azure budget and anomaly alerts;
-  - an external uptime check of the prod `/healthz` (Phase 9; tool still open).
+  - Azure Monitor metric alerts on platform metrics (VM CPU credits and availability, PostgreSQL storage and CPU),
+    at cents per alert rule;
+  - an uptime check of the prod `/healthz` (Phase 9): an Application Insights standard test (billed per run) or a
+    free external monitor; choose in Phase 9.
 - **Backend metrics:** application metrics (Micrometer/Prometheus) are not exposed today (`health,info` only). Adding
   a Prometheus stack is deferred until there is a concrete need, because of its memory cost on a single node.
 
@@ -398,10 +418,10 @@ Rules for this plan:
    100% forecast, plus cost anomaly alerts, **before** the first resource exists.
 2. One resource group per environment group (`rg-atlas-nonprod`, `rg-atlas-prod`), with tags `project`,
    `environment`, `owner`.
-3. Expected run rate if ADR-0003/0004 are accepted:
-   - Phases 3–4 (non-prod VM + one PostgreSQL server): ≈ **87 €/month**;
-   - from Phase 9 with a separate prod VM: ≈ **186 €/month**.
-   Both exclude VAT, egress, DNS and monitoring ingestion.
+3. Expected run rate (ADR-0003/0004 accepted; [ADR-0009](../adr/0009-azure-services-and-free-tier.md)):
+   - Phases 3–8 (VM + non-prod PostgreSQL): ≈ **61 €/month** in the free year, ≈ **88 €/month** after it;
+   - from Phase 9 (prod namespace + prod PostgreSQL): ≈ **78 €/month** in the free year, ≈ **105 €/month** after it.
+   Both include DNS and exclude VAT. Budget: 75 €, then 125 €. Raise it before month 13.
 4. Pause non-prod: deallocate the VM and stop the PostgreSQL server. It restarts automatically after seven days.
    Teardown: `az group delete`, then check for soft-deleted Key Vaults and leftover disks or IPs.
 5. Phase 9 adds a "resource cleanup automation" item (§18): a scheduled check, read-only via OIDC, that lists
@@ -427,8 +447,9 @@ when they are introduced.
 
 ## Dependencies
 
-- **Owner decisions:** ADR-0003, 0004, 0005, 0006, 0007 and 0008; region and account type; domain name; GHCR package
-  visibility; LICENSE.
+- **Owner decisions:**
+  - ADR-0005, 0006, 0007 and 0008; region; domain name; GHCR package visibility; LICENSE.
+  - Already decided 2026-11-12: ADR-0003, 0004 and 0009, the account type and the identity provider.
 - **`atlas-microservices`:**
   - container publishing and the bump PR (Phase 2/3);
   - migrate-only mode and the two database roles (before Phase 9);
@@ -448,11 +469,11 @@ when they are introduced.
 ## Sequence
 
 1. Phase 0/1 (done): plans, ADRs, local stack, manifests, validation, CI.
-2. Owner review: accept or adjust ADR-0003…0008, region, account type, domain.
+2. Owner review: ADR-0003, 0004 and 0009 accepted on 2026-11-12; accept or adjust ADR-0005…0008, region, domain.
 3. Phase 2: image publishing to GHCR and dev bump PRs. Optionally, rehearse an Argo CD sync on a throw-away local
    cluster (kind or k3d) at no cloud cost.
 4. Phase 3:
-   1. budget and alerts;
+   1. free account (then pay-as-you-go), budget and alerts;
    2. non-prod resource group;
    3. k3s VM bootstrap with Argo CD, ESO and cert-manager;
    4. non-prod PostgreSQL;
@@ -462,8 +483,8 @@ when they are introduced.
 5. Phase 4: `atlas-staging` live; PostSync smoke test; E2E against staging (Phase 4 exit); promotion workflow;
    rollback drill.
 6. Phase 9:
-   1. identity provider;
-   2. prod VM and PostgreSQL;
+   1. identity provider (Entra External ID external tenant; sign-up disabled);
+   2. prod namespace with quotas and priority, prod PostgreSQL and Key Vault;
    3. migration Job;
    4. public TLS;
    5. backups and restore drill;
@@ -516,9 +537,11 @@ when they are introduced.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| Single k3s node: failure or maintenance takes the environment down | downtime | stateless node, rehearsed rebuild (≤ 2 h target); separate prod VM; revisit AKS Standard if an SLA is needed |
+| Single k3s node: failure or maintenance takes the environment down | downtime | stateless node, rehearsed rebuild (≤ 2 h target); revisit AKS Standard if an SLA is needed |
+| Prod shares the node with dev and staging (owner-accepted, ADR-0003) | non-prod starves or, after an escape, reaches prod | PSA `restricted`, NetworkPolicies, non-prod ResourceQuota, prod PriorityClass, separate prod database and Key Vault; move prod to its own VM on the ADR-0003 triggers |
+| Free year ends (month 13) | bill rises by ≈ 27 €/month | budget raised to 125 €, reminder at month 12 ([ADR-0009](../adr/0009-azure-services-and-free-tier.md)) |
 | B-series CPU credits exhausted | slow or unavailable non-prod | monitor credits; move to D2as_v5 (+11.54 €/month) |
-| Memory pressure (dev + staging + controllers on 8 GiB) | evictions | requests sized; measure with `kubectl top` after bootstrap; prod on its own VM |
+| Memory pressure (dev + staging + prod + controllers on 8 GiB) | evictions | requests sized; measure with `kubectl top` after bootstrap; non-prod ResourceQuota; prod on its own VM if pressure is measured |
 | Migration incompatible with the running version | errors during rollout, failed rollback | expand/contract rule, N−1 compatibility test, PreSync Job for staging/prod |
 | Cost overrun / forgotten resources | unexpected bill | budget first, anomaly alerts, tagging, teardown procedure, cleanup automation (Phase 9) |
 | Workload identity on k3s needs a public OIDC issuer | setup complexity | VM managed identity fallback ([ADR-0005](../adr/0005-secrets-management.md)) |
@@ -559,19 +582,19 @@ Later phases:
 
 | # | Decision | Recommended default | Main trade-off | Record |
 |---|---|---|---|---|
-| §21.2 | Kubernetes platform | k3s on one B2as_v2 VM for dev + staging (Phases 3–4); prod on a separate D2as_v5 VM (Phase 9). ≈ 87 €/month, then ≈ 186 €/month. | Lowest cost with Argo CD, but no control-plane SLA and self-managed upgrades. AKS Free + Standard ≈ 725 €/month. | [ADR-0003](../adr/0003-kubernetes-platform.md) |
-| §21.3 | Database hosting | Flexible Server B1ms, PostgreSQL 18: one non-prod server and one prod server, not public | 17 €/month per server for managed PITR backups vs ≈ 0 € extra but a stateful node and our own backups if self-hosted | [ADR-0004](../adr/0004-database-hosting.md) |
+| §21.2 | Kubernetes platform | **Decided 2026-11-12:** k3s on one B2as_v2 VM for dev, staging and (from Phase 9) prod as namespaces. ≈ 61 → 88 €/month, with prod ≈ 78 → 105 €/month (free year → after). | Lowest cost with Argo CD, but no control-plane SLA, self-managed upgrades and prod sharing a node with non-prod (accepted risk). Separate prod VM ≈ 149 → 186 €/month; AKS Free + Standard ≈ 725 €/month. | [ADR-0003](../adr/0003-kubernetes-platform.md) |
+| §21.3 | Database hosting | **Decided 2026-11-12:** Flexible Server B1ms, PostgreSQL 18: one non-prod server (free quota in year 1) and one prod server, not public | 17 €/month per server for managed PITR backups vs ≈ 0 € extra but a stateful node and our own backups if self-hosted | [ADR-0004](../adr/0004-database-hosting.md) |
 | §21.4 | Frontend hosting | nginx container behind the same Ingress; Argo CD deploys it like the backend | Simplest GitOps and same-origin `/api` (no CORS), vs a static host's CDN and zero server cost but a second deployment path outside Argo CD | [ADR-0006](../adr/0006-frontend-hosting.md) |
 | §21.10 | Production secrets | Key Vault + External Secrets Operator; workload identity, with VM managed identity as fallback | Rotation without commits and audit, vs an extra operator. SOPS/Sealed Secrets keep ciphertext in Git and tie it to cluster keys. | [ADR-0005](../adr/0005-secrets-management.md) |
 | §21.11 | Backup/restore | PITR 35 days (prod), 7 days (non-prod); weekly prod `pg_dump` to Blob Cool, 12 weeks; RPO ≤ 5 min, RTO ≤ 4 h target; quarterly drill | Near-zero extra cost; no HA (Burstable), so restore is the recovery path | [§ Backup](#backup-restore-rporto) |
 | — | Azure region | Germany West Central: identical prices to West Europe for the recommended option, cheaper Container Apps | Some services (e.g. Static Web Apps pricing) only returned for West Europe; verify availability before creating resources | [COST-COMPARISON.md](../architecture/COST-COMPARISON.md) |
-| — | Account / subscription type | Pay-as-you-go subscription with a budget. A free account's credit and quotas are a bonus, not a plan; coverage is still to verify. | Free-account services expire or are capped | [COST-COMPARISON.md](../architecture/COST-COMPARISON.md) |
+| — | Account / subscription type | **Decided 2026-11-12:** free account at the start of Phase 3, upgraded to pay-as-you-go within 30 days; budget first. Free quotas save ≈ 27 €/month in year 1. | Free-account services expire after 12 months; budget raised before month 13 | [ADR-0009](../adr/0009-azure-services-and-free-tier.md) |
 | — | Image publishing and promotion | GHCR, `main-<sha>` + `X.Y.Z` tags on the same digest, bot PR for dev, reviewed PR + manual sync for staging/prod | One extra cross-repo credential (GitHub App) | [ADR-0007](../adr/0007-image-publishing-and-promotion.md) |
 | — | Migration execution | Startup Flyway until Phase 9; PreSync Job with a separate DDL role for staging/prod from Phase 9 | Simplicity now vs least privilege and clean failure later; needs a backend migrate-only mode | [ADR-0008](../adr/0008-database-migration-execution.md) |
 | — | GHCR package visibility | Private until the owner decides repository visibility; pull Secret via ESO | Private needs `ghcr-pull`; public needs none | [ADR-0007](../adr/0007-image-publishing-and-promotion.md) |
-| — | Domain and TLS issuer | Owner-chosen domain; Azure DNS + cert-manager DNS-01 (works with IP allow-lists) | DNS zone cost (to verify) vs manual certificates | [§ TLS and ingress](#tls-and-ingress) |
+| — | Domain and TLS issuer | Owner-chosen domain; Azure DNS + cert-manager DNS-01 (works with IP allow-lists) | ≈ 0.45 €/month DNS zone plus the registrar fee vs manual certificates | [§ TLS and ingress](#tls-and-ingress) |
 | — | LICENSE | No LICENSE file until the owner decides (contract rule) | Without a license, others have no reuse rights; fine for a private project | README |
-| §21.1 (input only) | Identity provider | Owned by the cross-repo roadmap. Infra impact: a local Keycloak compose profile if self-hosted is chosen, and OIDC Secrets in Phase 9. | — | `atlas` roadmap |
+| §21.1 (input only) | Identity provider | **Decided 2026-11-12:** Microsoft Entra External ID (free up to 50,000 MAU). Infra impact: OIDC configuration (issuer, client IDs) in Phase 9; no IdP workload in the cluster; Keycloak stays an optional local test profile. | — | `atlas` roadmap, `atlas-microservices` ADR-0005, [ADR-0009](../adr/0009-azure-services-and-free-tier.md) |
 
 ## Backlog (PR-sized)
 
@@ -589,6 +612,7 @@ Later phases:
 - [x] `scripts/validate.sh` and `policies/README.md` (tag and digest policy, no Secrets, kubeconform)
 - [x] `manifests-ci.yml` (validate, shellcheck, compose config, yamllint; pinned tool checksums)
 - [x] Docs: this plan, COST-COMPARISON, ADR-0001…0008 + index + template, runbook index + local development runbook
+- [x] ADR-0009 (Azure services and free tier); ADR-0003 and 0004 accepted (owner, 2026-11-12)
 - [ ] First push and first green `manifests-ci` run on GitHub (owner pushes; no commits were made in this session)
 - [ ] Branch protection on `main` with `manifests-ci` required; enable Dependabot alerts and secret scanning (owner,
       GitHub settings)
@@ -600,12 +624,14 @@ Later phases:
       (BE-1.13, BE-2.4)
 - [ ] GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
 - [ ] Optional: local kind/k3d rehearsal of the Argo CD Applications against this repository (documented, not CI)
-- [ ] Owner decisions recorded: ADR-0003…0008 accepted or amended; region; account type; domain
+- [ ] Owner decisions recorded: ADR-0005…0008 accepted or amended; region; domain
 
 ### Phase 3 — Non-prod platform and dev environment
 
-- [ ] Budget, anomaly alerts, `rg-atlas-nonprod` with tags (before any other resource)
-- [ ] Cluster bootstrap runbook + pinned bootstrap (k3s, Argo CD, ESO, cert-manager) on the non-prod VM; NSG
+- [ ] Azure free account (then pay-as-you-go upgrade within 30 days), budget 75 €, anomaly alerts,
+      `rg-atlas-nonprod` with tags (before any other resource)
+- [ ] Azure DNS public zone for the owner's domain; Private DNS zone for PostgreSQL
+- [ ] Cluster bootstrap runbook + pinned bootstrap (k3s, Argo CD, ESO, cert-manager) on the B2as_v2 VM; NSG
       allow-list
 - [ ] Non-prod PostgreSQL Flexible Server (`atlas_dev`, `atlas_staging`, separate logins, not public)
 - [ ] Key Vault (non-prod) + `atlas-dev-secrets` Application (SecretStore, ExternalSecrets); AppProject whitelist
@@ -626,8 +652,11 @@ Later phases:
 
 ### Phase 9 — Production (outline)
 
-- [ ] Identity provider integrated; no unauthenticated public route
-- [ ] Prod VM, prod PostgreSQL (35-day PITR), prod Key Vault, public TLS, HSTS/redirect
+- [ ] Identity provider integrated (Entra External ID external tenant, sign-up disabled); no unauthenticated public
+      route
+- [ ] Prod namespace on the shared VM: ResourceQuota on `atlas-dev`/`atlas-staging`, PriorityClass for prod
+- [ ] Prod PostgreSQL (35-day PITR), prod Key Vault, public TLS, HSTS/redirect; budget raised to 125 €
+- [ ] Uptime check of prod `/healthz` (Application Insights standard test or a free external monitor)
 - [ ] Migration PreSync Job with a separate DDL role (staging first, then prod); backend migrate-only mode
 - [ ] Weekly `pg_dump` to Blob Cool; restore drill completed and timed; backup/restore runbook
 - [ ] Runbooks: secret rotation, teardown, cluster rebuild (rehearsed)

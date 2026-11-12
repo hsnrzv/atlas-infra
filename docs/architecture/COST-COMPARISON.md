@@ -1,7 +1,10 @@
 # Cost comparison: hosting options for IKIGAI ATLAS on Azure
 
-- Status: input for [ADR-0003](../adr/0003-kubernetes-platform.md) (platform), [ADR-0004](../adr/0004-database-hosting.md)
-  (database) and [ADR-0006](../adr/0006-frontend-hosting.md) (frontend hosting) — all Proposed
+- Status: input for [ADR-0003](../adr/0003-kubernetes-platform.md) (platform, Accepted),
+  [ADR-0004](../adr/0004-database-hosting.md) (database, Accepted), [ADR-0006](../adr/0006-frontend-hosting.md)
+  (frontend hosting, Proposed) and [ADR-0009](../adr/0009-azure-services-and-free-tier.md) (Azure services and free
+  tier, Accepted). The owner's choice and its year-1 cost are in
+  [§ Free tier and selected configuration](#free-tier-and-selected-configuration).
 - Prices retrieved: **2026-11-12** from the public [Azure Retail Prices API](https://learn.microsoft.com/en-us/rest/api/cost-management/retail-prices/azure-retail-prices)
   (`https://prices.azure.com/api/retail/prices`)
 - Regions compared: `germanywestcentral` (Germany West Central) and `westeurope` (West Europe)
@@ -12,13 +15,18 @@
   plans, no Azure Hybrid Benefit, no enterprise/CSP discounts.
 - **730 hours per month.** Monthly figures are `unit price × 730` (or the monthly unit price for disks/storage),
   computed from unrounded unit prices and rounded to cents.
-- **Excluded unless stated:** VAT, internet egress/bandwidth, DNS zone and domain registration, Log Analytics /
-  Azure Monitor ingestion, Microsoft Defender plans, support plans, GitHub costs (GHCR, Actions minutes).
-- **Account type is an open decision.** An Azure free account gives a time-limited credit and 12 months of selected
-  free services within quotas; usage above the quotas and anything after expiry is charged at pay-as-you-go rates
-  ([Microsoft Learn: avoid charges with your free account](https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/avoid-charges-free-account),
-  accessed 2026-11-12). Which of the services below are covered by free-account quotas is **to verify** on the free
-  services page at sign-up time; this comparison assumes none are.
+- **Excluded from the option tables unless stated:** VAT, internet egress/bandwidth, DNS zones and domain
+  registration, Log Analytics / Azure Monitor ingestion, Microsoft Defender plans, support plans, GitHub costs (GHCR,
+  Actions minutes). DNS, Log Analytics and bandwidth for the selected configuration are covered in
+  [§ Free tier and selected configuration](#free-tier-and-selected-configuration).
+- **The option tables use list prices without free quotas**, so the options stay comparable.
+  - An Azure free account gives a credit for the first 30 days and 12 months of selected free services within
+    monthly quotas. Usage above the quotas, and anything after expiry, is charged at pay-as-you-go rates
+    ([Microsoft Learn: avoid charges with your free account](https://learn.microsoft.com/en-us/azure/cost-management-billing/manage/avoid-charges-free-account),
+    accessed 2026-11-12).
+  - The owner supplied the free-service lists on 2026-11-12; they were reviewed in
+    [ADR-0009](../adr/0009-azure-services-and-free-tier.md). The free-tier effect on the selected configuration is in
+    [§ Free tier and selected configuration](#free-tier-and-selected-configuration).
 - **Workload size:** one user, two first-party workloads (backend JVM, static frontend), three environments. Memory
   needed for k3s + Argo CD + ingress + External Secrets + cert-manager + the application pods of dev, staging and
   prod on one node is **estimated at ~5.5–6 GiB** from the resource requests in `apps/` and typical controller
@@ -64,6 +72,9 @@ vCPU/RAM from Microsoft Learn size pages ([Basv2](https://learn.microsoft.com/en
 | Blob storage (General Purpose v2) Hot / Cool / Cold, LRS | 0.0176 / 0.0090 / 0.0040 per GB-month | < 1 for a few GB of dumps |
 | Key Vault Standard operations | 0.0269 per 10,000 operations | < 1 at this scale |
 | Static Web Apps Standard (only `westeurope` returned a price) | 8.0794 / app-month; first 100 GB bandwidth included, then 0.1795 / GB | 8.08 per app |
+| Azure DNS public zone / private zone (first 25 zones) | 0.4489 / zone-month each; queries 0.3591 per million | 0.45 per zone + queries |
+| Log Analytics, Analytics Logs ingestion | first 5 GB / month 0.00, then 2.6841 / GB; retention beyond the included period 0.1167 / GB-month | 0 within 5 GB |
+| App Service plan Linux B1 (1 core / 1.75 GB) / Free F1 | 0.0162 / hour / 0.00 | 11.83 / 0 |
 
 Disk prices are LRS disk meters. The API also returns ZRS and separate "Disk Mount" meters; they are not applied here (meaning of "Disk Mount" for a single unshared disk: to verify).
 
@@ -196,10 +207,11 @@ subscription):
 | Ops burden | high | medium | low |
 | Main risk | single node, self-managed upgrades | cost | no GitOps; JVM cold starts |
 
-**Recommendation (Proposed, see [ADR-0003](../adr/0003-kubernetes-platform.md)):** Option 1 — k3s on one
-Standard_B2as_v2 VM for dev + staging from Phase 2–4, with prod added in Phase 9 either on a separate D2as_v5 VM
-(recommended for isolation, total ≈ 186 €/month) or, if the owner accepts the documented risk, as a namespace on the
-same VM (≈ 104 €/month). Revisit AKS Standard if an SLA becomes a requirement.
+**Decision (owner, 2026-11-12, [ADR-0003](../adr/0003-kubernetes-platform.md) Accepted):** Option 1. k3s runs on
+one Standard_B2as_v2 VM for dev + staging from Phase 3. Prod is added in Phase 9 as a namespace on the same VM, with
+its own PostgreSQL server; the owner accepted the documented shared-node risk. That is ≈ 104 €/month at list prices,
+≈ 78 €/month in the free year. The separate D2as_v5 prod VM (≈ 186 €/month) remains the upgrade path. Revisit AKS
+Standard if an SLA becomes a requirement.
 
 **Region (open decision):** VM, disk, IP, load-balancer, PostgreSQL and AKS prices are identical in Germany West
 Central and West Europe. Germany West Central is cheaper for Container Apps; Static Web Apps prices were only returned
@@ -207,10 +219,47 @@ for West Europe. **Recommended default: Germany West Central** (no price disadva
 all resources in one region). Choose West Europe if Static Web Apps or a service missing in Germany West Central
 becomes necessary — verify service availability in the region before creating resources.
 
+## Free tier and selected configuration
+
+The free-service lists the owner supplied on 2026-11-12 were checked against this configuration; the full review is
+[ADR-0009](../adr/0009-azure-services-and-free-tier.md). Quotas that apply:
+
+| Free service (period) | Quota | Applies to |
+|---|---|---|
+| PostgreSQL Flexible Server (12 months) | 750 h B1ms, 32 GB storage, 32 GB backup | one server for a full month: the non-prod server |
+| Disk Storage (12 months) | 2 × P6 64 GB | the VM's P6 OS disk |
+| Key Vault (12 months) | 10,000 operations | both vaults (ESO reads) |
+| Blob Storage (12 months) | 5 GB Hot LRS | weekly prod dumps (Phase 9; Cool tier costs cents) |
+| Bandwidth (always + 12 months) | 100 GB + 15 GB outbound | all egress |
+| Log Analytics (Azure Monitor, always) | 5 GB ingestion | optional workspace with a daily cap |
+| Microsoft Entra External ID (successor of the listed Azure AD B2C) | 50,000 MAU | app-user sign-in |
+| Linux VMs B2ats v2 / B2pts v2 (12 months) | 750 h each | **not usable**: 1 GiB RAM, below the k3s minimum |
+
+Free compute alternatives were also checked; none fits the accepted Argo CD model:
+- **App Service F1:** 60 CPU minutes per day, 1 GB memory, no custom domain, no SLA.
+- **Container Apps:** always-free grants of 180,000 vCPU-s and 360,000 GiB-s, about 100 active hours per month of a
+  0.5 vCPU / 1 GiB backend. Viable at ≈ 18–45 €/month with prod, but it has no Argo CD; the owner rejected it on
+  2026-11-12.
+
+Selected configuration, EUR per month excluding VAT:
+
+| Line item | Phases 3–8, year 1 | Phases 3–8, after month 12 | Phase 9+, year 1 | Phase 9+, after month 12 |
+|---|---|---|---|---|
+| VM Standard_B2as_v2 | 56.65 | 56.65 | 56.65 | 56.65 |
+| OS disk P6 | 0.00 | 10.08 | 0.00 | 10.08 |
+| Public IPv4 | 3.29 | 3.29 | 3.29 | 3.29 |
+| PostgreSQL B1ms non-prod | 0.00 | 17.00 | 0.00 | 17.00 |
+| PostgreSQL B1ms prod | — | — | 17.00 | 17.00 |
+| Azure DNS public zone + private zone | 0.90 | 0.90 | 0.90 | 0.90 |
+| Key Vault, Blob, bandwidth, Log Analytics, External ID | ≈ 0 | < 0.50 | ≈ 0 | < 0.50 |
+| **Total** | **≈ 61** | **≈ 88** | **≈ 78** | **≈ 105** |
+
+Not included: VAT, the domain registration (external registrar), GitHub, and the Phase 10 store accounts.
+
 ## Budget alerts and teardown (before any resource is created)
 
 1. Create the subscription-level **budget** first (Cost Management → Budgets): monthly amount = chosen option's
-   estimate + 20%; alerts at 50%, 80%, 100% actual and 100% forecast, sent to the owner's e-mail.
+   estimate + 20% (75 € in the free year before Phase 9, 125 € afterwards; [ADR-0009](../adr/0009-azure-services-and-free-tier.md)); alerts at 50%, 80%, 100% actual and 100% forecast, sent to the owner's e-mail.
 2. Enable **cost anomaly alerts** for the subscription.
 3. Put every resource in one resource group per environment group (e.g. `rg-atlas-nonprod`, `rg-atlas-prod`) and tag
    it `project=ikigai-atlas`, `environment=<env>`, `owner=hsnrzv`, so cost is attributable and teardown is one
@@ -241,6 +290,9 @@ the Container Apps per-second meters). Replace `<region>` with `germanywestcentr
 | Blob storage | `armRegionName eq '<region>' and productName eq 'General Block Blob v2'` |
 | Static Web Apps | `armRegionName eq '<region>' and contains(productName,'Static Web')` |
 | Key Vault | `armRegionName eq '<region>' and serviceName eq 'Key Vault'` |
+| Azure DNS (public and private zones, queries) | `serviceName eq 'Azure DNS'` (use the `Zone 1` rows for Europe) |
+| Log Analytics | `armRegionName eq '<region>' and serviceName eq 'Log Analytics'` |
+| App Service plans | `armRegionName eq '<region>' and serviceName eq 'Azure App Service' and (skuName eq 'F1' or skuName eq 'B1')` |
 
 Example:
 

@@ -1,8 +1,8 @@
 # ADR-0004: Database hosting — Azure Database for PostgreSQL Flexible Server vs self-hosted PostgreSQL
 
-- Status: Proposed
+- Status: Accepted (2026-11-12)
 - Date: 2026-11-12
-- Deciders: Repository owner (@hsnrzv) — decision pending; platform engineering (recommendation)
+- Deciders: Repository owner (@hsnrzv); platform engineering (recommendation)
 
 ## Context
 
@@ -22,10 +22,13 @@ Facts (retrieved 2026-11-12, see [COST-COMPARISON.md](../architecture/COST-COMPA
 - Microsoft positions Burstable for "low-cost development and low concurrency workloads without continuous compute
   capacity". A single-user application is a low-concurrency workload.
 - A stopped server stays stopped for at most seven days, then starts automatically.
+- The Azure free account includes, for 12 months, 750 hours per month of Flexible Server Burstable B1ms with 32 GB
+  storage and 32 GB backup storage. That covers **one** server running all month; a second server is billed
+  ([ADR-0009](0009-azure-services-and-free-tier.md)).
 
 ## Decision
 
-Recommended default (awaiting owner approval):
+Accepted by the owner on 2026-11-12 (two servers, prod isolated):
 
 1. **Azure Database for PostgreSQL Flexible Server, PostgreSQL 18, Burstable B1ms, 32 GiB**, in the same region as the
    cluster, **not publicly accessible** (private access/VNet integration or, at minimum, firewall rules limited to the
@@ -40,7 +43,8 @@ Recommended default (awaiting owner approval):
 
 ## Consequences
 
-- Durable data with built-in PITR for 17 €/month per server; no database operations on the k3s node, which keeps the
+- Durable data with built-in PITR for 17 €/month per server. In the first 12 months of a free account the non-prod
+  server is covered by the free quota, so only the prod server (from Phase 9) is billed; no database operations on the k3s node, which keeps the
   node stateless ([ADR-0003](0003-kubernetes-platform.md)).
 - Burstable CPU credits can run out under sustained load; monitor and scale to a larger SKU if needed (B2s is
   52.20 €/month compute).

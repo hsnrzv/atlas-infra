@@ -1,8 +1,8 @@
 # ADR-0003: Kubernetes platform — k3s on an Azure VM vs AKS Free/Standard
 
-- Status: Proposed
+- Status: Accepted (2026-11-12, amended: prod runs as a namespace on the same VM; see Decision item 2)
 - Date: 2026-11-12
-- Deciders: Repository owner (@hsnrzv) — decision pending; platform engineering (recommendation)
+- Deciders: Repository owner (@hsnrzv); platform engineering (recommendation)
 
 ## Context
 
@@ -23,17 +23,21 @@ Facts (details, sources and retrieval date in [COST-COMPARISON.md](../architectu
 - AKS Free has no financially backed SLA and is positioned for dev/test; AKS Standard has a 99.9% (99.95% with
   availability zones) API-server SLA. A single k3s server has no control-plane SLA.
 - Region: VM, disk, IP, PostgreSQL and AKS prices are identical in Germany West Central and West Europe.
+- The Azure free account's 12-month Linux VMs (B2ats v2 / B2pts v2) have 2 vCPU but only 1 GiB RAM, below the k3s
+  server minimum of 2 GB. They cannot host k3s + Argo CD + the JVM, so the cluster VM is paid in every option
+  ([ADR-0009](0009-azure-services-and-free-tier.md)).
 
 ## Decision
 
-Recommended default (awaiting owner approval):
+Accepted by the owner on 2026-11-12:
 
 1. **k3s on a single Azure Linux VM** (Standard_B2as_v2, Germany West Central) with Argo CD for `dev` and `staging`
-   from Phase 2–4 (cluster ≈ 70 €/month; ≈ 87 €/month with one PostgreSQL B1ms server).
-2. **Prod (Phase 9):** a **separate k3s VM** (Standard_D2as_v5, non-burstable) for isolation from non-prod —
-   total ≈ 186 €/month for everything including two PostgreSQL servers. If the owner explicitly accepts the risk, prod
-   may run as a namespace on the same VM (total ≈ 104 €/month); that choice must be recorded in this ADR's
-   Consequences when accepted.
+   from Phase 3 (cluster ≈ 70 €/month without free quotas; year-1 and later figures in
+   [ADR-0009](0009-azure-services-and-free-tier.md)).
+2. **Prod (Phase 9) runs as the `atlas-prod` namespace on the same VM.** The owner explicitly accepted the shared-node
+   risk (see Consequences) to save ≈ 82 €/month. Prod data is still isolated on its own PostgreSQL server
+   ([ADR-0004](0004-database-hosting.md)) and its own Key Vault ([ADR-0005](0005-secrets-management.md)). The
+   previously recommended separate prod VM (Standard_D2as_v5, total ≈ 186 €/month) remains the upgrade path.
 3. Nodes are **stateless cattle**: all state lives in Git (manifests), managed PostgreSQL ([ADR-0004](0004-database-hosting.md))
    and Key Vault ([ADR-0005](0005-secrets-management.md)). Recovery is "recreate VM + run the bootstrap runbook",
    which must be tested before prod.
@@ -50,8 +54,15 @@ Recommended default (awaiting owner approval):
 - The owner operates the cluster: OS patching (unattended upgrades + planned reboots), k3s/Argo CD/add-on upgrades,
   monitoring CPU credits on B-series (switch to D2as_v5 for +11.54 €/month if credits run out).
 - Single point of failure and maintenance downtime; acceptable for a single-user personal app only if documented.
-- Namespaces are organisational boundaries, not a complete security boundary — the reason prod gets its own VM by
-  default.
+- **Accepted risk (owner, 2026-11-12): prod shares the node with dev and staging.** Namespaces are organisational
+  boundaries, not a complete security boundary (§15.1). A non-prod workload can starve or, after a container escape,
+  reach prod. Mitigations:
+  - PSA `restricted` and default-deny NetworkPolicies per namespace (in place);
+  - a ResourceQuota per non-prod namespace and a higher PriorityClass for prod (Phase 9);
+  - separate prod PostgreSQL server, Key Vault and database credentials;
+  - manual Argo CD sync for prod.
+  Move prod to its own VM (≈ +82 €/month) if any of these become true: the data is shared with other users, non-prod
+  runs untrusted or experimental workloads, an uptime target is promised, or memory pressure is measured.
 - The Ingress NetworkPolicies select the `kube-system` namespace, where k3s runs Traefik; a different ingress
   controller requires patching those selectors.
 - Follow-up: cluster bootstrap runbook (Phase 2), budget alerts before creating the VM, backup of nothing on the node
@@ -64,8 +75,13 @@ Recommended default (awaiting owner approval):
 - **One AKS Standard cluster for all environments** (≈ 412 €/month incl. PostgreSQL). SLA for the API server, still
   ≈ 4× Option 1; environments share nodes anyway.
 - **AKS Free tier for everything** (≈ 347 €/month). Rejected: no SLA and explicitly not production-grade (§15.2).
-- **Azure Container Apps + Static Web Apps** (≈ 43–65 €/month). Cheapest to operate, but no Argo CD/GitOps model;
-  would require superseding ADR-0002 and is therefore not recommended while Argo CD is a requirement.
+- **Separate prod VM** (Standard_D2as_v5; ≈ 186 €/month for everything, ≈ 149 €/month in year 1 with free quotas).
+  Stronger isolation; rejected for now on cost, kept as the upgrade path (see Consequences).
+- **Azure Container Apps + Static Web Apps** (≈ 43–65 €/month; ≈ 18–45 €/month with the always-free grants and scale
+  to zero). Cheapest to operate, but no Argo CD/GitOps model and JVM cold starts. Re-evaluated with the owner on
+  2026-11-12 and rejected: the owner keeps k3s + Argo CD ([ADR-0002](0002-gitops-argocd-kustomize-separate-infra-repo.md)).
+- **Azure App Service.** Free F1: 60 CPU minutes per day, 1 GB memory, no custom domain, no Always On, no SLA; not
+  viable for production. Basic B1 Linux (≈ 11.83 €/month, 1.75 GB) has no Argo CD path either.
 - **Arm64 nodes** (Dpls_v5) to cut AKS cost: requires multi-arch application images; possible later optimisation.
 
 ## References
