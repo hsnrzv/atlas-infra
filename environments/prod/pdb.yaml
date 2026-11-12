@@ -1,0 +1,29 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: atlas-backend
+  labels:
+    app.kubernetes.io/name: atlas-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  # prod runs 2 replicas; keep one serving during voluntary disruptions (node drain, upgrades).
+  # On a single-node cluster this only protects against evicting both pods at once, not node loss.
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-backend
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: atlas-frontend
+  labels:
+    app.kubernetes.io/name: atlas-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-frontend

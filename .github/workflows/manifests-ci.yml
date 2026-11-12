@@ -1,0 +1,89 @@
+name: manifests-ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: manifests-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  KUBECTL_VERSION: v1.37.2
+  KUBECTL_SHA256: c04487523e7aa7d1493f7808174c899db93d7a9cf57531420cd76b9bd415f8f4
+  KUBECONFORM_VERSION: v0.8.0
+  KUBECONFORM_SHA256: 9bc2bffbf71f261128533edaf912153948b7ff238f9a531ae6d34466ec287883
+  SHELLCHECK_VERSION: v0.11.0
+  SHELLCHECK_SHA256: 8c3be12b05d5c177a04c29e3c78ce89ac86f1595681cab149b65b97c4e227198
+  YAMLLINT_VERSION: 1.38.0
+
+jobs:
+  validate:
+    name: Render & validate manifests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+
+      - name: Install pinned tools (checksum-verified)
+        run: |
+          set -euo pipefail
+          bin="$RUNNER_TEMP/bin"
+          mkdir -p "$bin"
+          cd "$RUNNER_TEMP"
+
+          curl -fsSLo kubectl "https://dl.k8s.io/release/${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          echo "${KUBECTL_SHA256}  kubectl" | sha256sum -c -
+          install -m 0755 kubectl "$bin/kubectl"
+
+          curl -fsSLO "https://github.com/yannh/kubeconform/releases/download/${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz"
+          echo "${KUBECONFORM_SHA256}  kubeconform-linux-amd64.tar.gz" | sha256sum -c -
+          tar -xzf kubeconform-linux-amd64.tar.gz kubeconform
+          install -m 0755 kubeconform "$bin/kubeconform"
+
+          sc_archive="shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          curl -fsSLO "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/${sc_archive}"
+          echo "${SHELLCHECK_SHA256}  ${sc_archive}" | sha256sum -c -
+          tar -xJf "${sc_archive}"
+          install -m 0755 "shellcheck-${SHELLCHECK_VERSION}/shellcheck" "$bin/shellcheck"
+
+          echo "$bin" >> "$GITHUB_PATH"
+
+      - name: Tool versions
+        run: |
+          kubectl version --client
+          kubeconform -v
+          shellcheck --version
+
+      - name: Render overlays, image policy, kubeconform
+        env:
+          REQUIRE_KUBECONFORM: "1"
+        run: bash scripts/validate.sh
+
+      - name: Upload rendered manifests
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: rendered-manifests
+          path: build/rendered/
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Shellcheck scripts
+        run: shellcheck scripts/*.sh
+
+      - name: Validate local compose file
+        # Sibling repos are not checked out here; `config` does not need the build contexts.
+        run: docker compose -f local/compose.yaml config -q
+
+      - name: yamllint
+        run: |
+          pipx run "yamllint==${YAMLLINT_VERSION}" --strict -c .yamllint.yaml .

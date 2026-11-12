@@ -1,0 +1,12 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  labels:
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  # Every pod in the namespace denies inbound traffic unless another policy allows it
+  # (see apps/*/base/networkpolicy.yaml). Requires a CNI that enforces NetworkPolicy
+  # (k3s ships one; AKS needs a network policy engine enabled at cluster creation).
+  podSelector: {}
+  policyTypes: ["Ingress"]

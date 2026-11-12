@@ -1,0 +1,108 @@
+# IKIGAI ATLAS - local full stack (LOCAL DEVELOPMENT ONLY).
+#
+#   docker compose -f local/compose.yaml up --build      # from the atlas-infra repository root
+#   open http://127.0.0.1:8000
+#
+# Builds the sibling repositories' Dockerfiles (../../atlas and ../../atlas-microservices relative to
+# this file; override with ATLAS_FRONTEND_DIR / ATLAS_BACKEND_DIR) and puts an `edge` nginx in front of
+# them that mirrors the Kubernetes Ingress: /api/ -> backend, everything else -> frontend.
+#
+# The database credentials below (atlas/atlas/atlas) are throwaway LOCAL-ONLY values. They must never be
+# used in any shared or deployed environment; deployed environments read them from the
+# `atlas-backend-db` Secret (see README.md#secrets-contract). See local/README.md for details.
+name: atlas-local
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    environment:
+      POSTGRES_DB: atlas
+      POSTGRES_USER: atlas
+      POSTGRES_PASSWORD: atlas # LOCAL ONLY
+    ports:
+      - "127.0.0.1:${ATLAS_DB_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U atlas -d atlas"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    volumes:
+      # PostgreSQL 18 images keep PGDATA below /var/lib/postgresql (major-version subdirectory).
+      - postgres-data:/var/lib/postgresql
+    labels:
+      dev.myatlas.environment: local-only
+
+  backend:
+    build:
+      context: ${ATLAS_BACKEND_DIR:-../../atlas-microservices}
+      dockerfile: Dockerfile
+    image: atlas-backend:local
+    environment:
+      # `dev` (not `local`): the `local` profile starts spring-boot-docker-compose, which is only meant
+      # for `./mvnw spring-boot:run` on a developer machine. `dev` also gives structured JSON logs.
+      SPRING_PROFILES_ACTIVE: ${ATLAS_BACKEND_PROFILE:-dev}
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/atlas
+      SPRING_DATASOURCE_USERNAME: atlas # LOCAL ONLY
+      SPRING_DATASOURCE_PASSWORD: atlas # LOCAL ONLY
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Not published to the host by default (avoids clashing with `./mvnw spring-boot:run` on 8080);
+    # reach it through the edge proxy on port 8000.
+    healthcheck:
+      # The eclipse-temurin:21-jre-noble runtime image ships curl.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/actuator/health/readiness"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+      start_period: 60s
+    labels:
+      dev.myatlas.environment: local-only
+
+  frontend:
+    build:
+      context: ${ATLAS_FRONTEND_DIR:-../../atlas}
+      dockerfile: Dockerfile
+    image: atlas-frontend:local
+    healthcheck:
+      # nginxinc/nginx-unprivileged alpine images ship curl.
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    labels:
+      dev.myatlas.environment: local-only
+
+  edge:
+    image: nginx:1.30-alpine
+    ports:
+      - "127.0.0.1:${ATLAS_EDGE_PORT:-8000}:80"
+    volumes:
+      - ./edge/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      backend:
+        condition: service_healthy
+      frontend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "-o", "/dev/null", "http://127.0.0.1/edge-healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+    labels:
+      dev.myatlas.environment: local-only
+
+  # Future (Phase 9, authentication - see docs/plan/PLAN-INFRASTRUCTURE-CICD.md): an optional local
+  # Keycloak for OIDC testing, started only with `--profile auth`. Deliberately NOT active until the
+  # identity-provider decision (project-instruction section 21, item 1) is made. Sketch only:
+  #
+  # keycloak:
+  #   image: quay.io/keycloak/keycloak:<pinned version>
+  #   profiles: [auth]
+  #   command: ["start-dev"]
+  #   ports: ["127.0.0.1:8180:8080"]
+
+volumes:
+  postgres-data:

@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - networkpolicy.yaml
+
+# Non-secret configuration only. Environment overlays merge their values (behavior: merge); the name hash
+# suffix rolls the Deployment whenever the configuration changes. Database credentials and the JDBC URL
+# live in the `atlas-backend-db` Secret, which is never committed (README.md#secrets-contract).
+configMapGenerator:
+  - name: atlas-backend-config
+    options:
+      labels:
+        app.kubernetes.io/name: atlas-backend
+        app.kubernetes.io/component: backend
+        app.kubernetes.io/part-of: ikigai-atlas
+    literals:
+      - SPRING_PROFILES_ACTIVE=dev

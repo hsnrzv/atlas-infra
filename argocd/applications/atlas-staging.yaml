@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlas-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ikigai-atlas
+    app.kubernetes.io/instance: atlas-staging
+  # No resources-finalizer on purpose: deleting the Application must not cascade-delete the environment.
+spec:
+  project: atlas
+  source:
+    repoURL: https://github.com/hsnrzv/atlas-infra.git
+    targetRevision: main
+    path: environments/staging
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlas-staging
+  # Manual sync: changes reach staging via a reviewed PR, then an operator presses Sync in Argo CD.
+  # No `automated` block means Argo CD reports OutOfSync but never applies on its own.
+  syncPolicy:
+    syncOptions:
+      - PruneLast=true
+  revisionHistoryLimit: 10

@@ -1,0 +1,43 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: atlas
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  description: IKIGAI ATLAS application environments (dev, staging, prod).
+  # Only this repository may be used as a source; images are referenced from manifests, not Git.
+  sourceRepos:
+    - https://github.com/hsnrzv/atlas-infra.git
+  # Only the three ATLAS namespaces on the cluster Argo CD runs in.
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: atlas-dev
+    - server: https://kubernetes.default.svc
+      namespace: atlas-staging
+    - server: https://kubernetes.default.svc
+      namespace: atlas-prod
+  # Cluster-scoped: only the environment Namespace objects (environments/<env>/namespace.yaml).
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  # Namespaced: exactly the kinds rendered by environments/*. Extend deliberately (e.g. batch/Job for the
+  # migration hook in ADR-0008, external-secrets.io/ExternalSecret for ADR-0005) in the same PR that needs it.
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: apps
+      kind: Deployment
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: policy
+      kind: PodDisruptionBudget
+  orphanedResources:
+    warn: true

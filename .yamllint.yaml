@@ -1,0 +1,27 @@
+# yamllint configuration (CI: .github/workflows/manifests-ci.yml).
+extends: default
+
+ignore: |
+  build/
+  .tools/
+  .venv/
+  .idea/
+
+rules:
+  line-length:
+    max: 140
+    level: warning
+  # Kubernetes and GitHub Actions YAML conventionally omit the document start marker.
+  document-start: disable
+  # `on:` in GitHub Actions workflows is a key, not a boolean.
+  truthy:
+    allowed-values: ["true", "false"]
+    check-keys: false
+  comments:
+    min-spaces-from-content: 1
+  # Explanatory comments are intentionally placed next to the block they describe (e.g. after a
+  # nested mapping, or a commented-out compose service), which this rule would reject.
+  comments-indentation: disable
+  indentation:
+    spaces: 2
+    indent-sequences: consistent

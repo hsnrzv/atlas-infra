@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: atlas-frontend
+  labels:
+    app.kubernetes.io/name: atlas-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: atlas-frontend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP

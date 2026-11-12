@@ -1,0 +1,32 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlas-dev
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ikigai-atlas
+    app.kubernetes.io/instance: atlas-dev
+  # No resources-finalizer on purpose: deleting the Application must not cascade-delete the environment.
+spec:
+  project: atlas
+  source:
+    repoURL: https://github.com/hsnrzv/atlas-infra.git
+    targetRevision: main
+    path: environments/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlas-dev
+  # dev follows `main` automatically: merged image-bump PRs deploy without a manual step.
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
+  revisionHistoryLimit: 10

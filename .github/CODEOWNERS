@@ -1,0 +1,8 @@
+# Every change to this repository needs review from the owner. Production-affecting paths are listed
+# explicitly so the rule survives if the default owner list changes later.
+*                       @hsnrzv
+
+/environments/prod/     @hsnrzv
+/argocd/                @hsnrzv
+/apps/                  @hsnrzv
+/.github/               @hsnrzv

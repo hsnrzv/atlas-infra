@@ -1,0 +1,38 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atlas-frontend-allow-ingress
+  labels:
+    app.kubernetes.io/name: atlas-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-frontend
+  policyTypes: ["Ingress"]
+  ingress:
+    # Only the ingress controller may reach the frontend (same selector as the backend policy; see there).
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: http
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atlas-frontend-deny-egress
+  labels:
+    app.kubernetes.io/name: atlas-frontend
+    app.kubernetes.io/component: frontend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  # The frontend only serves static files; the browser reaches /api through the Ingress, not via nginx.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-frontend
+  policyTypes: ["Egress"]
+  egress: []

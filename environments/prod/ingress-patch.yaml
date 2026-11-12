@@ -1,0 +1,7 @@
+# Placeholder host (RFC 2606 documentation domain); the real domain is an open decision.
+- op: replace
+  path: /spec/rules/0/host
+  value: atlas.example.com
+- op: replace
+  path: /spec/tls/0/hosts/0
+  value: atlas.example.com

@@ -1,0 +1,45 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# prod: user data. Changes arrive only via reviewed PR (CODEOWNERS) and a manual Argo CD sync
+# (argocd/applications/atlas-prod.yaml). Nothing deploys here because a feature branch merged.
+namespace: atlas-prod
+
+resources:
+  - namespace.yaml
+  - ../../apps/namespace-baseline/base
+  - ../../apps/backend/base
+  - ../../apps/frontend/base
+  - ../../apps/ingress/base
+  - pdb.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: atlas-prod
+    includeSelectors: false
+    includeTemplates: true
+
+configMapGenerator:
+  - name: atlas-backend-config
+    behavior: merge
+    literals:
+      - SPRING_PROFILES_ACTIVE=prod
+
+patches:
+  - path: backend/deployment-patch.yaml
+  - path: frontend/deployment-patch.yaml
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: atlas
+
+# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no image has been published yet.
+# PROD REQUIRES DIGESTS: once a release exists, pin the exact image verified in staging, e.g.
+#   newTag: 1.4.0
+#   digest: sha256:<64 hex chars>
+# scripts/validate.sh fails for prod images that are neither digest-pinned nor this placeholder.
+images:
+  - name: ghcr.io/hsnrzv/atlas-backend
+    newTag: 0.0.0-unreleased
+  - name: ghcr.io/hsnrzv/atlas-frontend
+    newTag: 0.0.0-unreleased

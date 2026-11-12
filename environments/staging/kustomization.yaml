@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# staging: release candidates and end-to-end acceptance. Changes arrive via reviewed PR; Argo CD sync is
+# manual (argocd/applications/atlas-staging.yaml).
+namespace: atlas-staging
+
+resources:
+  - namespace.yaml
+  - ../../apps/namespace-baseline/base
+  - ../../apps/backend/base
+  - ../../apps/frontend/base
+  - ../../apps/ingress/base
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: atlas-staging
+    includeSelectors: false
+    includeTemplates: true
+
+configMapGenerator:
+  - name: atlas-backend-config
+    behavior: merge
+    literals:
+      - SPRING_PROFILES_ACTIVE=staging
+
+patches:
+  - path: backend/deployment-patch.yaml
+  - path: frontend/deployment-patch.yaml
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: atlas
+
+# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no image has been published yet.
+# Promotion = PR that copies the tag + digest verified in dev. Never use `latest` (scripts/validate.sh).
+images:
+  - name: ghcr.io/hsnrzv/atlas-backend
+    newTag: 0.0.0-unreleased
+  - name: ghcr.io/hsnrzv/atlas-frontend
+    newTag: 0.0.0-unreleased

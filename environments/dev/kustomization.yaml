@@ -1,0 +1,41 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# dev: shared integration environment. Argo CD syncs automatically (argocd/applications/atlas-dev.yaml).
+namespace: atlas-dev
+
+resources:
+  - namespace.yaml
+  - ../../apps/namespace-baseline/base
+  - ../../apps/backend/base
+  - ../../apps/frontend/base
+  - ../../apps/ingress/base
+
+labels:
+  - pairs:
+      app.kubernetes.io/instance: atlas-dev
+    includeSelectors: false
+    includeTemplates: true
+
+configMapGenerator:
+  - name: atlas-backend-config
+    behavior: merge
+    literals:
+      - SPRING_PROFILES_ACTIVE=dev
+
+patches:
+  - path: backend/deployment-patch.yaml
+  - path: frontend/deployment-patch.yaml
+  - path: ingress-patch.yaml
+    target:
+      kind: Ingress
+      name: atlas
+
+# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no image has been published yet.
+# The backend/frontend container workflows will open a PR here with an immutable version tag (and digest).
+# Never use `latest` (enforced by scripts/validate.sh).
+images:
+  - name: ghcr.io/hsnrzv/atlas-backend
+    newTag: 0.0.0-unreleased
+  - name: ghcr.io/hsnrzv/atlas-frontend
+    newTag: 0.0.0-unreleased

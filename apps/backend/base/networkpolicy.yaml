@@ -1,0 +1,51 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atlas-backend-allow-ingress
+  labels:
+    app.kubernetes.io/name: atlas-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-backend
+  policyTypes: ["Ingress"]
+  ingress:
+    # Only the ingress controller may reach the backend. kube-system is where k3s runs its bundled
+    # Traefik (the proposed default, docs/adr/0003-kubernetes-platform.md). Patch this selector in the
+    # overlays if another ingress controller/namespace is chosen.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - port: http
+          protocol: TCP
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: atlas-backend-restrict-egress
+  labels:
+    app.kubernetes.io/name: atlas-backend
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/part-of: ikigai-atlas
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: atlas-backend
+  policyTypes: ["Egress"]
+  egress:
+    # DNS (cluster DNS service and node-local resolvers).
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # PostgreSQL. The database host is an open decision (docs/adr/0004-database-hosting.md); narrow `to:`
+    # to the managed server's private endpoint/subnet CIDR once it exists.
+    # Phase 9 will add HTTPS egress to the chosen OIDC provider here.
+    - ports:
+        - port: 5432
+          protocol: TCP

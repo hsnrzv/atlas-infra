@@ -1,0 +1,29 @@
+# IDE / OS
+/.idea/
+.vscode/
+*.iml
+.DS_Store
+
+# Local environment overrides (copy local/.env.example to local/.env)
+.env
+.env.*
+!.env.example
+local/.env
+
+# Decrypted secrets must never be committed
+*.decrypted*
+*.dec.yaml
+*.dec.yml
+
+# Kubeconfigs and cloud credentials
+kubeconfig
+kubeconfig*
+*.kubeconfig
+.kube/
+*.pem
+*.key
+
+# Validation output and local tool downloads (scripts/validate.sh, CI helpers)
+/build/
+/.tools/
+/.venv/

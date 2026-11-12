@@ -1,0 +1,24 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: atlas-prod
+  namespace: argocd
+  labels:
+    app.kubernetes.io/part-of: ikigai-atlas
+    app.kubernetes.io/instance: atlas-prod
+  # No resources-finalizer on purpose: deleting the Application must not cascade-delete production.
+spec:
+  project: atlas
+  source:
+    repoURL: https://github.com/hsnrzv/atlas-infra.git
+    targetRevision: main
+    path: environments/prod
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: atlas-prod
+  # Manual sync only: prod changes require a CODEOWNERS-reviewed PR and an explicit, audited Sync.
+  # Never add `automated` here; never prune automatically in prod.
+  syncPolicy:
+    syncOptions:
+      - PruneLast=true
+  revisionHistoryLimit: 10
