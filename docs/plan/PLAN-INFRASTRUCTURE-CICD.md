@@ -8,6 +8,7 @@
 - Source of truth: `atlas/project-instruction.md` §0, §9.4–9.6, §13, §15, §16, §17.4, §18, §19, §21, §22. Also the
   cross-repo setup contract of 2026-11-12.
 - Related documents in this repository:
+  - [implementation roadmap](../implementation/roadmap.md) (phase order, gates, `INF-…` IDs)
   - [COST-COMPARISON.md](../architecture/COST-COMPARISON.md)
   - [ADRs](../adr/README.md)
   - [runbooks](../runbooks/README.md)
@@ -598,77 +599,80 @@ Later phases:
 
 ## Backlog (PR-sized)
 
+IDs are stable for cross-referencing; the order and gates are in the
+[implementation roadmap](../implementation/roadmap.md).
+
 ### Phase 1 — Foundations (this repository)
 
-- [x] Repository hygiene: README, CONTRIBUTING, SECURITY, THIRD-PARTY-NOTICES, `.editorconfig`, `.gitattributes`,
+- [x] **INF-1.1** Repository hygiene: README, CONTRIBUTING, SECURITY, THIRD-PARTY-NOTICES, `.editorconfig`, `.gitattributes`,
       `.gitignore`, CODEOWNERS, PR template, Dependabot
-- [x] Local full stack: `local/compose.yaml` (postgres, backend, frontend, edge), edge nginx config, `.env.example`,
+- [x] **INF-1.2** Local full stack: `local/compose.yaml` (postgres, backend, frontend, edge), edge nginx config, `.env.example`,
       local README. Verified end to end on 2026-11-12.
-- [x] Kustomize bases: backend, frontend, ingress, namespace baseline (probes, resources, securityContext,
+- [x] **INF-1.3** Kustomize bases: backend, frontend, ingress, namespace baseline (probes, resources, securityContext,
       NetworkPolicies)
-- [x] Overlays: `dev`, `staging`, `prod` (namespaces with PSA `restricted`, replicas, resources, hosts, image pins,
+- [x] **INF-1.4** Overlays: `dev`, `staging`, `prod` (namespaces with PSA `restricted`, replicas, resources, hosts, image pins,
       prod PDBs)
-- [x] Argo CD AppProject and Applications (dev automated, staging/prod manual). Not applied.
-- [x] `scripts/validate.sh` and `policies/README.md` (tag and digest policy, no Secrets, kubeconform)
-- [x] `manifests-ci.yml` (validate, shellcheck, compose config, yamllint; pinned tool checksums)
-- [x] Docs: this plan, COST-COMPARISON, ADR-0001…0008 + index + template, runbook index + local development runbook
-- [x] ADR-0009 (Azure services and free tier); ADR-0003 and 0004 accepted (owner, 2026-11-12)
-- [ ] First push and first green `manifests-ci` run on GitHub (owner pushes; no commits were made in this session)
-- [ ] Branch protection on `main` with `manifests-ci` required; enable Dependabot alerts and secret scanning (owner,
+- [x] **INF-1.5** Argo CD AppProject and Applications (dev automated, staging/prod manual). Not applied.
+- [x] **INF-1.6** `scripts/validate.sh` and `policies/README.md` (tag and digest policy, no Secrets, kubeconform)
+- [x] **INF-1.7** `manifests-ci.yml` (validate, shellcheck, compose config, yamllint; pinned tool checksums)
+- [x] **INF-1.8** Docs: this plan, COST-COMPARISON, ADR-0001…0008 + index + template, runbook index + local development runbook
+- [x] **INF-1.9** ADR-0009 (Azure services and free tier); ADR-0003 and 0004 accepted (owner, 2026-11-12)
+- [ ] **INF-1.10** First push and first green `manifests-ci` run on GitHub (owner pushes; no commits were made in this session)
+- [ ] **INF-1.11** Branch protection on `main` with `manifests-ci` required; enable Dependabot alerts and secret scanning (owner,
       GitHub settings)
 
 ### Phase 2 — Publishing (no cloud cost)
 
-- [ ] `atlas`: `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (F2-11, F2-12)
-- [ ] `atlas-microservices`: `backend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan
+- [ ] **INF-2.1** `atlas`: `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (F2-11, F2-12)
+- [ ] **INF-2.2** `atlas-microservices`: `backend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan
       (BE-1.13, BE-2.4)
-- [ ] GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
-- [ ] Optional: local kind/k3d rehearsal of the Argo CD Applications against this repository (documented, not CI)
-- [ ] Owner decisions recorded: ADR-0005…0008 accepted or amended; region; domain
+- [ ] **INF-2.3** GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
+- [ ] **INF-2.4** Optional: local kind/k3d rehearsal of the Argo CD Applications against this repository (documented, not CI)
+- [ ] **INF-2.0** Owner decisions recorded: ADR-0005…0008 accepted or amended; region; domain
 
 ### Phase 3 — Non-prod platform and dev environment
 
-- [ ] Azure free account (then pay-as-you-go upgrade within 30 days), budget 75 €, anomaly alerts,
+- [ ] **INF-3.1** Azure free account (then pay-as-you-go upgrade within 30 days), budget 75 €, anomaly alerts,
       `rg-atlas-nonprod` with tags (before any other resource)
-- [ ] Azure DNS public zone for the owner's domain; Private DNS zone for PostgreSQL
-- [ ] Cluster bootstrap runbook + pinned bootstrap (k3s, Argo CD, ESO, cert-manager) on the B2as_v2 VM; NSG
+- [ ] **INF-3.2** Azure DNS public zone for the owner's domain; Private DNS zone for PostgreSQL
+- [ ] **INF-3.3** Cluster bootstrap runbook + pinned bootstrap (k3s, Argo CD, ESO, cert-manager) on the B2as_v2 VM; NSG
       allow-list
-- [ ] Non-prod PostgreSQL Flexible Server (`atlas_dev`, `atlas_staging`, separate logins, not public)
-- [ ] Key Vault (non-prod) + `atlas-dev-secrets` Application (SecretStore, ExternalSecrets); AppProject whitelist
+- [ ] **INF-3.4** Non-prod PostgreSQL Flexible Server (`atlas_dev`, `atlas_staging`, separate logins, not public)
+- [ ] **INF-3.5** Key Vault (non-prod) + `atlas-dev-secrets` Application (SecretStore, ExternalSecrets); AppProject whitelist
       update
-- [ ] TLS: ClusterIssuer (DNS-01) + `atlas-tls` for dev; `ingressClassName` set
-- [ ] Apply the AppProject and `atlas-dev`; first automated sync; verify probes and NetworkPolicies on the real
+- [ ] **INF-3.6** TLS: ClusterIssuer (DNS-01) + `atlas-tls` for dev; `ingressClassName` set
+- [ ] **INF-3.7** Apply the AppProject and `atlas-dev`; first automated sync; verify probes and NetworkPolicies on the real
       controller
 
 ### Phase 4 — Staging and promotion
 
-- [ ] `atlas-microservices`: `openapi-publish.yml` (BE-4.1)
-- [ ] `atlas-staging` live (manual sync) with secrets and TLS
-- [ ] PostSync smoke-test Job for staging (AppProject: `batch/Job`)
-- [ ] `promote.yml` workflow: open a promotion PR copying the tag and digest dev → staging (and later staging → prod)
-- [ ] E2E suite runs against staging (Phase 4 exit criterion)
-- [ ] Rollback runbook + drill in staging (revert promotion, sync, verify)
-- [ ] Rendered-manifest diff on `atlas-infra` PRs
+- [ ] **INF-4.1** `atlas-microservices`: `openapi-publish.yml` (BE-4.1)
+- [ ] **INF-4.2** `atlas-staging` live (manual sync) with secrets and TLS
+- [ ] **INF-4.3** PostSync smoke-test Job for staging (AppProject: `batch/Job`)
+- [ ] **INF-4.4** `promote.yml` workflow: open a promotion PR copying the tag and digest dev → staging (and later staging → prod)
+- [ ] **INF-4.5** E2E suite runs against staging (Phase 4 exit criterion)
+- [ ] **INF-4.6** Rollback runbook + drill in staging (revert promotion, sync, verify)
+- [ ] **INF-4.7** Rendered-manifest diff on `atlas-infra` PRs
 
 ### Phase 9 — Production (outline)
 
-- [ ] Identity provider integrated (Entra External ID external tenant, sign-up disabled); no unauthenticated public
+- [ ] **INF-9.1** Identity provider integrated (Entra External ID external tenant, sign-up disabled); no unauthenticated public
       route
-- [ ] Prod namespace on the shared VM: ResourceQuota on `atlas-dev`/`atlas-staging`, PriorityClass for prod
-- [ ] Prod PostgreSQL (35-day PITR), prod Key Vault, public TLS, HSTS/redirect; budget raised to 125 €
-- [ ] Uptime check of prod `/healthz` (Application Insights standard test or a free external monitor)
-- [ ] Migration PreSync Job with a separate DDL role (staging first, then prod); backend migrate-only mode
-- [ ] Weekly `pg_dump` to Blob Cool; restore drill completed and timed; backup/restore runbook
-- [ ] Runbooks: secret rotation, teardown, cluster rebuild (rehearsed)
-- [ ] Threat model review; scans gating with a documented exception process
-- [ ] Cost cleanup automation; first prod promotion (digest-pinned, manual sync)
+- [ ] **INF-9.2** Prod namespace on the shared VM: ResourceQuota on `atlas-dev`/`atlas-staging`, PriorityClass for prod
+- [ ] **INF-9.3** Prod PostgreSQL (35-day PITR), prod Key Vault, public TLS, HSTS/redirect; budget raised to 125 €
+- [ ] **INF-9.4** Uptime check of prod `/healthz` (Application Insights standard test or a free external monitor)
+- [ ] **INF-9.5** Migration PreSync Job with a separate DDL role (staging first, then prod); backend migrate-only mode
+- [ ] **INF-9.6** Weekly `pg_dump` to Blob Cool; restore drill completed and timed; backup/restore runbook
+- [ ] **INF-9.7** Runbooks: secret rotation, teardown, cluster rebuild (rehearsed)
+- [ ] **INF-9.8** Threat model review; scans gating with a documented exception process
+- [ ] **INF-9.9** Cost cleanup automation; first prod promotion (digest-pinned, manual sync)
 
 ### Phase 10 — Mobile release (outline)
 
-- [ ] `mobile-validation.yml` (Android build/test; iOS build/test on macOS)
-- [ ] Protected `release` environment with required reviewer; App Store Connect API key and signing material stored
+- [ ] **INF-10.1** `mobile-validation.yml` (Android build/test; iOS build/test on macOS)
+- [ ] **INF-10.2** Protected `release` environment with required reviewer; App Store Connect API key and signing material stored
       there
-- [ ] `mobile-release.yml` (manual dispatch, TestFlight/App Store Connect upload, explicit release configuration)
+- [ ] **INF-10.3** `mobile-release.yml` (manual dispatch, TestFlight/App Store Connect upload, explicit release configuration)
 
 ## References
 

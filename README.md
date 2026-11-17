@@ -7,7 +7,8 @@ infrastructure plan, cost comparison, runbooks and ADRs.
 > **Status: Phase 0 planning + Phase 1 foundations.** Nothing in this repository is applied to a cluster yet.
 > The Kubernetes platform (k3s on a VM vs AKS), the Azure region and subscription type, database hosting and
 > secret management are open decisions. See [docs/adr/](docs/adr/README.md) and
-> [docs/plan/PLAN-INFRASTRUCTURE-CICD.md](docs/plan/PLAN-INFRASTRUCTURE-CICD.md).
+> [docs/plan/PLAN-INFRASTRUCTURE-CICD.md](docs/plan/PLAN-INFRASTRUCTURE-CICD.md); phase order and gates are in
+> [docs/implementation/roadmap.md](docs/implementation/roadmap.md).
 
 ## Repository map
 
