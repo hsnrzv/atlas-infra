@@ -1,7 +1,8 @@
 # Implementation roadmap — atlas-infra
 
 - Status: **Proposed 2026-11-17**, awaiting owner approval. Phase 0 and the Phase 1 foundations were delivered on
-  2026-11-12; the GitHub items of Phase 1 are open. Nothing has been applied to a cluster or created in Azure.
+  2026-11-12 and pushed to `origin/main` (2026-11-26); the remaining GitHub items of Phase 1 (green CI, repository
+  settings) are open. Nothing has been applied to a cluster or created in Azure.
 - Purpose: set the order in which the platform is built, with an explicit gate between phases, the cost gates, and
   the cross-repository hand-offs to `atlas` (frontend) and `atlas-microservices` (backend).
 - Maps the cross-repository phases P0–P11 in `atlas` `docs/plan/IMPLEMENTATION-ROADMAP.md` onto the backlog in
@@ -34,7 +35,7 @@
 | ID | Item | Status |
 |---|---|---|
 | INF-1.1…1.9 | Hygiene, local full stack, Kustomize bases and overlays, Argo CD project and apps (not applied), `validate.sh`, `manifests-ci`, docs and ADRs, ADR-0009 | done 2026-11-12 (local) |
-| INF-1.10 | First push and first green `manifests-ci` run on GitHub | open (owner action); `origin/main` does not exist yet |
+| INF-1.10 | First push and first green `manifests-ci` run on GitHub | in progress: pushed to `origin/main` by 2026-11-26; first green `manifests-ci` run to be confirmed |
 | INF-1.11 | Branch protection on `main` requiring `manifests-ci`; Dependabot alerts; secret scanning with push protection | open (owner action) |
 
 **Gate 1:** `manifests-ci` green on GitHub and required on `main` (together with `atlas` F1-15 and backend

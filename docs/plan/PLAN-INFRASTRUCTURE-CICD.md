@@ -617,7 +617,8 @@ IDs are stable for cross-referencing; the order and gates are in the
 - [x] **INF-1.7** `manifests-ci.yml` (validate, shellcheck, compose config, yamllint; pinned tool checksums)
 - [x] **INF-1.8** Docs: this plan, COST-COMPARISON, ADR-0001…0008 + index + template, runbook index + local development runbook
 - [x] **INF-1.9** ADR-0009 (Azure services and free tier); ADR-0003 and 0004 accepted (owner, 2026-11-12)
-- [ ] **INF-1.10** First push and first green `manifests-ci` run on GitHub (owner pushes; no commits were made in this session)
+- [ ] **INF-1.10** First push and first green `manifests-ci` run on GitHub (pushed to `origin/main` by 2026-11-26; green run
+      to be confirmed)
 - [ ] **INF-1.11** Branch protection on `main` with `manifests-ci` required; enable Dependabot alerts and secret scanning (owner,
       GitHub settings)
 
