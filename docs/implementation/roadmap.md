@@ -36,7 +36,7 @@
 |---|---|---|
 | INF-1.1…1.9 | Hygiene, local full stack, Kustomize bases and overlays, Argo CD project and apps (not applied), `validate.sh`, `manifests-ci`, docs and ADRs, ADR-0009 | done 2026-11-12 (local) |
 | INF-1.10 | First push and first green `manifests-ci` run on GitHub | done 2026-11-27: `manifests-ci` green on `main` and on the bump PRs |
-| INF-1.11 | Branch protection on `main` requiring `manifests-ci`; Dependabot alerts; secret scanning with push protection | done 2026-11-27: ruleset `protect-main` requires `Render & validate manifests`; Dependabot and secret scanning set by the owner. Follow-up (owner): enable private vulnerability reporting (off on 2026-11-27) |
+| INF-1.11 | Branch protection on `main` requiring `manifests-ci`; Dependabot alerts; secret scanning with push protection | done 2026-11-27: ruleset `protect-main` requires `Render & validate manifests`; Dependabot and secret scanning set by the owner. Private vulnerability reporting enabled 2026-11-27 |
 
 **Gate 1:** `manifests-ci` green on GitHub and required on `main` (together with `atlas` F1-15 and backend
 BE-1.14/1.15, which closes repo P1).
