@@ -36,6 +36,7 @@ patches:
 # Never use `latest` (enforced by scripts/validate.sh).
 images:
   - name: ghcr.io/hsnrzv/atlas-backend
-    newTag: 0.0.0-unreleased
+    newTag: main-1a8646dceca7
+    digest: sha256:677ba6adbee26f1a62fcf23495d1ddfe8408d585d3ebde81920cf4604cd9019f
   - name: ghcr.io/hsnrzv/atlas-frontend
     newTag: 0.0.0-unreleased
