@@ -263,7 +263,7 @@ Conventions for all workflows:
 
 ## Image publishing and the automated update PR
 
-The design is in [ADR-0007](../adr/0007-image-publishing-and-promotion.md) (Proposed). In short:
+The design is in [ADR-0007](../adr/0007-image-publishing-and-promotion.md) (Accepted 2026-11-27). In short:
 
 1. A merge to `main` in an application repository runs `*-container`.
    - It builds once and pushes `ghcr.io/hsnrzv/atlas-<app>:main-<12-char sha>` with SBOM and provenance attestations.
@@ -625,9 +625,10 @@ IDs are stable for cross-referencing; the order and gates are in the
 ### Phase 2 — Publishing (no cloud cost)
 
 - [ ] **INF-2.1** `atlas`: `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (F2-11, F2-12)
-- [ ] **INF-2.2** `atlas-microservices`: `backend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan
+- [x] **INF-2.2** `atlas-microservices`: `backend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan
       (BE-1.13, BE-2.4)
 - [ ] **INF-2.3** GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
+      (App and backend job done 2026-11-27, with auto-merge; the frontend job is open with F2-12)
 - [ ] **INF-2.4** Optional: local kind/k3d rehearsal of the Argo CD Applications against this repository (documented, not CI)
 - [ ] **INF-2.0** Owner decisions recorded: ADR-0005…0008 accepted or amended; region; domain
 
