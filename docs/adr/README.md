@@ -15,7 +15,7 @@ decisions live in `atlas-microservices/docs/adr/`.
 | [0004](0004-database-hosting.md) | Database hosting: Azure Database for PostgreSQL Flexible Server vs self-hosted | Accepted | 2026-11-12 |
 | [0005](0005-secrets-management.md) | Production secrets: External Secrets Operator + Azure Key Vault | Proposed | 2026-11-12 |
 | [0006](0006-frontend-hosting.md) | Frontend hosting: nginx container behind the same Ingress | Proposed | 2026-11-12 |
-| [0007](0007-image-publishing-and-promotion.md) | Image publishing and promotion: GHCR, immutable tags + digests, PR-based promotion | Proposed | 2026-11-12 |
+| [0007](0007-image-publishing-and-promotion.md) | Image publishing and promotion: GHCR, immutable tags + digests, PR-based promotion | Accepted | 2026-11-27 |
 | [0008](0008-database-migration-execution.md) | Database migration execution strategy | Proposed | 2026-11-12 |
 | [0009](0009-azure-services-and-free-tier.md) | Azure services for the production MVP and use of the free tier | Accepted | 2026-11-12 |
 

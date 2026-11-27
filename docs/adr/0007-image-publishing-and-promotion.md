@@ -1,8 +1,8 @@
 # ADR-0007: Image publishing and promotion — GHCR, immutable tags + digests, PR-based promotion
 
-- Status: Proposed
+- Status: Accepted (2026-11-27)
 - Date: 2026-11-12
-- Deciders: Repository owner (@hsnrzv) — decision pending; platform engineering (recommendation)
+- Deciders: Repository owner (@hsnrzv); platform engineering (recommendation)
 
 ## Context
 
@@ -46,7 +46,8 @@ Recommended default, awaiting owner approval:
    - Credential: a **GitHub App** installation token (`actions/create-github-app-token`) scoped to `atlas-infra` with
      `contents: write` and `pull-requests: write`. A fine-grained personal access token limited to `atlas-infra` is
      the fallback.
-   - `manifests-ci` must pass. The owner may enable auto-merge for these dev-only PRs.
+   - `manifests-ci` must pass. Auto-merge (squash) is enabled for these dev-only PRs (2026-11-27): the backend
+     `bump-infra-dev` job turns it on, and the PR merges once the required checks on `main` are green.
 5. **Promotion to staging and prod is a human-reviewed PR.**
    - The PR copies the exact `newTag` + `digest` from the lower environment. Prod requires the digest, which
      `validate.sh` enforces, and CODEOWNERS approval.

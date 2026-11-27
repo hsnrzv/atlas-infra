@@ -1,8 +1,8 @@
 # Implementation roadmap — atlas-infra
 
-- Status: **Proposed 2026-11-17**, awaiting owner approval. Phase 0 and the Phase 1 foundations were delivered on
-  2026-11-12 and pushed to `origin/main` (2026-11-26); the remaining GitHub items of Phase 1 (green CI, repository
-  settings) are open. Nothing has been applied to a cluster or created in Azure.
+- Status: **Proposed 2026-11-17**, awaiting owner approval. Phase 0 and Phase 1 are done (Gate 1 met 2026-11-27:
+  `manifests-ci` green and required on `main`). Phase 2 is done for the backend (ADR-0007 accepted, backend images
+  published, dev bump PRs auto-merge); the frontend publishing (INF-2.1, `atlas` F2-12) is open. Nothing has been applied to a cluster or created in Azure.
 - Purpose: set the order in which the platform is built, with an explicit gate between phases, the cost gates, and
   the cross-repository hand-offs to `atlas` (frontend) and `atlas-microservices` (backend).
 - Maps the cross-repository phases P0–P11 in `atlas` `docs/plan/IMPLEMENTATION-ROADMAP.md` onto the backlog in
@@ -35,8 +35,8 @@
 | ID | Item | Status |
 |---|---|---|
 | INF-1.1…1.9 | Hygiene, local full stack, Kustomize bases and overlays, Argo CD project and apps (not applied), `validate.sh`, `manifests-ci`, docs and ADRs, ADR-0009 | done 2026-11-12 (local) |
-| INF-1.10 | First push and first green `manifests-ci` run on GitHub | in progress: pushed to `origin/main` by 2026-11-26; first green `manifests-ci` run to be confirmed |
-| INF-1.11 | Branch protection on `main` requiring `manifests-ci`; Dependabot alerts; secret scanning with push protection | open (owner action) |
+| INF-1.10 | First push and first green `manifests-ci` run on GitHub | done 2026-11-27: `manifests-ci` green on `main` and on the bump PRs |
+| INF-1.11 | Branch protection on `main` requiring `manifests-ci`; Dependabot alerts; secret scanning with push protection | done 2026-11-27: ruleset `protect-main` requires `Render & validate manifests`; Dependabot and secret scanning set by the owner. Follow-up (owner): enable private vulnerability reporting (off on 2026-11-27) |
 
 **Gate 1:** `manifests-ci` green on GitHub and required on `main` (together with `atlas` F1-15 and backend
 BE-1.14/1.15, which closes repo P1).
@@ -45,14 +45,15 @@ BE-1.14/1.15, which closes repo P1).
 
 | ID | Item | Status |
 |---|---|---|
-| INF-2.0 | Owner decisions: ADR-0005 (secrets), 0006 (frontend hosting), 0007 (image publishing), 0008 (migrations) accepted or amended; region; domain; shared image scanner (Trivy proposed) | open (owner) — **blocks INF-2.1…2.3** |
-| INF-2.1 | `atlas` `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (`atlas` F2-12) | blocked on INF-2.0 (ADR-0007); SBOM and Trivy scan already run (F2-11) |
-| INF-2.2 | `atlas-microservices` `backend-container` publishes `main-<sha>` to GHCR (BE-1.13, BE-2.4) | blocked on INF-2.0 and BE-1.13 |
-| INF-2.3 | GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev` | blocked on INF-2.0 |
+| INF-2.0 | Owner decisions: ADR-0005 (secrets), 0006 (frontend hosting), 0007 (image publishing), 0008 (migrations) accepted or amended; region; domain; shared image scanner (Trivy proposed) | partly done 2026-11-27: ADR-0007 accepted (unblocks INF-2.1…2.3); Trivy runs in both application repositories. Open (owner): ADR-0005, 0006, 0008, region, domain, GHCR package visibility (needed by Phase 3) |
+| INF-2.1 | `atlas` `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (`atlas` F2-12) | open (unblocked 2026-11-27); SBOM and Trivy scan already run (F2-11) |
+| INF-2.2 | `atlas-microservices` `backend-container` publishes `main-<sha>` to GHCR (BE-1.13, BE-2.4) | done 2026-11-27 |
+| INF-2.3 | GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev` | partly done 2026-11-27: App installed; backend `bump-infra-dev` opens `chore/bump-backend-dev` with auto-merge (squash) once `manifests-ci` passes (#2, #3). Open: the frontend bump job (`atlas` F2-12) |
 | INF-2.4 | Optional: local kind/k3d rehearsal of the Argo CD Applications (documented, not CI) | open, optional |
 
 **Gate 2:** a merge to `main` in each application repository produces a scanned, signed-provenance image in GHCR and
-an automated bump PR here that passes `manifests-ci`.
+an automated bump PR here that passes `manifests-ci`. **Status 2026-11-27:** met for the backend; open for the
+frontend (INF-2.1, F2-12).
 
 ### Phase 3 — Non-prod platform and dev environment (creates paid resources)
 
@@ -123,7 +124,7 @@ from a staging-verified digest.
 
 | Infra needs / delivers | From / to |
 |---|---|
-| ADR-0007 accepted (INF-2.0) | unblocks `atlas` F2-12 and backend BE-2.4 |
+| ADR-0007 accepted (INF-2.0, 2026-11-27) | unblocks `atlas` F2-12; backend BE-2.4 done |
 | Shared scanner decision (INF-2.0) | aligns `atlas` F2-11 (Trivy) and backend BE-1.13 |
 | GitHub App + bump PRs (INF-2.3) | needs the publishing jobs from `atlas` F2-12 and BE-2.4 |
 | `atlas-dev` live (INF-3.7) | first deployed backend + frontend; needs Gate 2 images |
@@ -136,14 +137,14 @@ INF-3.1 → INF-3.7 → INF-4.2 → INF-4.5 (staging e2e, shared with backend BE
 ## 4. Decisions
 
 Accepted: ADR-0001, ADR-0002 (GitOps, Argo CD, Kustomize, separate repo), ADR-0003 (k3s on one B2as_v2 VM, prod as
-a namespace), ADR-0004 (PostgreSQL Flexible Server B1ms, two servers), ADR-0009 (Azure services and free tier);
+a namespace), ADR-0004 (PostgreSQL Flexible Server B1ms, two servers), ADR-0007 (GHCR, image publishing and
+promotion; dev bump PRs auto-merge, 2026-11-27), ADR-0009 (Azure services and free tier);
 identity provider Microsoft Entra External ID (2026-11-12).
 
 ### 4.1 Open decisions to settle before the phase that needs them
 
 | Decision | Recommended default | Needed by |
 |---|---|---|
-| ADR-0007 image publishing and promotion | GHCR, `main-<sha>` + `X.Y.Z` on the same digest, bot PR for dev, reviewed PR + manual sync for staging/prod | Gate 2 |
 | Shared image scanner | Trivy (Apache-2.0); Grype as fallback | Gate 2 |
 | GHCR package visibility | Private until repository visibility is decided; pull Secret via ESO | Gate 2 |
 | ADR-0005 secrets | Key Vault + ESO; VM managed identity as fallback to workload identity | Phase 3 |
