@@ -31,8 +31,8 @@ patches:
       kind: Ingress
       name: atlas
 
-# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no image has been published yet.
-# The backend/frontend container workflows will open a PR here with an immutable version tag (and digest).
+# Image pinning. The backend/frontend container workflows open a PR here with the immutable `main-<sha>` tag and
+# digest of every image published from `main` (ADR-0007).
 # Never use `latest` (enforced by scripts/validate.sh).
 images:
   - name: ghcr.io/hsnrzv/atlas-backend
