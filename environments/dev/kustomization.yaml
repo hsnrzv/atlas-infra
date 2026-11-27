@@ -39,4 +39,5 @@ images:
     newTag: main-12b2b2a1c902
     digest: sha256:07d2ca93941d7a36cbe5289ffa288a69dd58192f0cf17600bd70c776d420c0a4
   - name: ghcr.io/hsnrzv/atlas-frontend
-    newTag: 0.0.0-unreleased
+    newTag: main-14311115909a
+    digest: sha256:8681ced5948412b61cb78577efae5d1e7a3fa10ac7b9a47a06baac1e5f555fd2
