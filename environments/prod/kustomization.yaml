@@ -33,7 +33,7 @@ patches:
       kind: Ingress
       name: atlas
 
-# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no image has been published yet.
+# Image pinning. `0.0.0-unreleased` is an explicit placeholder: no release has been promoted here yet.
 # PROD REQUIRES DIGESTS: once a release exists, pin the exact image verified in staging, e.g.
 #   newTag: 1.4.0
 #   digest: sha256:<64 hex chars>

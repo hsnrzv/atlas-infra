@@ -175,7 +175,8 @@ scripts/validate.sh        render all overlays + image policy + no Secrets + kub
 local/                     Docker Compose full stack + edge nginx
 ```
 
-Image pins currently use the explicit placeholder tag `0.0.0-unreleased`, because no image has been published yet.
+`dev` pins the `main-<sha>` tag and digest set by the bump PRs. `staging` and `prod` use the explicit placeholder tag
+`0.0.0-unreleased` until the first release is promoted.
 `validate.sh` will reject `latest` or a missing tag. Prod additionally requires a digest for any tag other than that
 placeholder.
 
@@ -244,7 +245,7 @@ Phase 9.
 | Workflow (§16) | Repository | State 2026-11-12 | Now does | Later (phase) |
 |---|---|---|---|---|
 | `frontend-ci.yml` | `atlas` | exists | PR + push `main`: `npm ci`, lockfile-registry check, design checks, ESLint, Stylelint, Prettier, Vitest, production build, Playwright, dependency review | Coverage gate; required status check on `main` (owner setting) |
-| `frontend-container.yml` | `atlas` | exists (build only) | Builds the runtime image (`push: false`) and smoke-tests health, SPA fallback, headers, API isolation | Phase 2: publish to GHCR on `main` (`main-<sha>`), SBOM + provenance, image scan, bump PR to `atlas-infra` dev ([ADR-0007](../adr/0007-image-publishing-and-promotion.md)) |
+| `frontend-container.yml` | `atlas` | exists | Builds and smoke-tests the runtime image (health, SPA fallback, headers, API isolation), Trivy scan and SBOM; on `main` publishes `main-<sha>` to GHCR with provenance and SBOM attestations, scans the digest and opens the dev bump PR ([ADR-0007](../adr/0007-image-publishing-and-promotion.md); done 2026-11-27, F2-12) | Releases and staging/prod promotion |
 | `mobile-validation.yml` | `atlas` | not yet | — | Phase 10 (earlier if Capacitor platforms are added): Capacitor sync, Android build/test, iOS build/test on a macOS runner |
 | `mobile-release.yml` | `atlas` | not yet | — | Phase 10: manual, protected `release` environment ([§ Mobile release](#mobile-release-app-store-connect-165)) |
 | `backend-ci.yml` | `atlas-microservices` | exists | PR + push `main`: `./mvnw verify` (unit, Spring Modulith architecture, Testcontainers integration tests, with an assertion that they ran), test reports, dependency review | Coverage report and gate; migration compatibility test (N−1 app vs N schema) before Phase 9 |
@@ -624,11 +625,11 @@ IDs are stable for cross-referencing; the order and gates are in the
 
 ### Phase 2 — Publishing (no cloud cost)
 
-- [ ] **INF-2.1** `atlas`: `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (F2-11, F2-12)
+- [x] **INF-2.1** `atlas`: `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (F2-11, F2-12)
 - [x] **INF-2.2** `atlas-microservices`: `backend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan
       (BE-1.13, BE-2.4)
-- [ ] **INF-2.3** GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
-      (App and backend job done 2026-11-27, with auto-merge; the frontend job is open with F2-12)
+- [x] **INF-2.3** GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev`
+      (App and backend job done 2026-11-27, with auto-merge; frontend job done 2026-11-27 with F2-12, first bump #8)
 - [ ] **INF-2.4** Optional: local kind/k3d rehearsal of the Argo CD Applications against this repository (documented, not CI)
 - [ ] **INF-2.0** Owner decisions recorded: ADR-0005…0008 accepted or amended; region; domain
 

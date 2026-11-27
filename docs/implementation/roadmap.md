@@ -1,8 +1,8 @@
 # Implementation roadmap — atlas-infra
 
 - Status: **Proposed 2026-11-17**, awaiting owner approval. Phase 0 and Phase 1 are done (Gate 1 met 2026-11-27:
-  `manifests-ci` green and required on `main`). Phase 2 is done for the backend (ADR-0007 accepted, backend images
-  published, dev bump PRs auto-merge); the frontend publishing (INF-2.1, `atlas` F2-12) is open. Nothing has been applied to a cluster or created in Azure.
+  `manifests-ci` green and required on `main`). Phase 2 publishing is done (ADR-0007 accepted; backend and
+  frontend images published, dev bump PRs auto-merge; Gate 2 met 2026-11-27). Nothing has been applied to a cluster or created in Azure.
 - Purpose: set the order in which the platform is built, with an explicit gate between phases, the cost gates, and
   the cross-repository hand-offs to `atlas` (frontend) and `atlas-microservices` (backend).
 - Maps the cross-repository phases P0–P11 in `atlas` `docs/plan/IMPLEMENTATION-ROADMAP.md` onto the backlog in
@@ -46,14 +46,14 @@ BE-1.14/1.15, which closes repo P1).
 | ID | Item | Status |
 |---|---|---|
 | INF-2.0 | Owner decisions: ADR-0005 (secrets), 0006 (frontend hosting), 0007 (image publishing), 0008 (migrations) accepted or amended; region; domain; shared image scanner (Trivy proposed) | partly done 2026-11-27: ADR-0007 accepted (unblocks INF-2.1…2.3); Trivy runs in both application repositories. Open (owner): ADR-0005, 0006, 0008, region, domain, GHCR package visibility (needed by Phase 3) |
-| INF-2.1 | `atlas` `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (`atlas` F2-12) | open (unblocked 2026-11-27); SBOM and Trivy scan already run (F2-11) |
+| INF-2.1 | `atlas` `frontend-container` publishes `main-<sha>` to GHCR with SBOM, provenance and scan (`atlas` F2-12) | done 2026-11-27 (`atlas` F2-12): `main-14311115909a` published with provenance and SBOM attestations, digest scanned |
 | INF-2.2 | `atlas-microservices` `backend-container` publishes `main-<sha>` to GHCR (BE-1.13, BE-2.4) | done 2026-11-27 |
-| INF-2.3 | GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev` | partly done 2026-11-27: App installed; backend `bump-infra-dev` opens `chore/bump-backend-dev` with auto-merge (squash) once `manifests-ci` passes (#2, #3). Open: the frontend bump job (`atlas` F2-12) |
+| INF-2.3 | GitHub App for cross-repo PRs; bump-PR job in both container workflows targeting `environments/dev` | partly done 2026-11-27: App installed; backend `bump-infra-dev` opens `chore/bump-backend-dev` with auto-merge (squash) once `manifests-ci` passes (#2, #3); frontend `bump-infra-dev` opens `chore/bump-frontend-dev` the same way (first run #8, 2026-11-27). Done 2026-11-27 |
 | INF-2.4 | Optional: local kind/k3d rehearsal of the Argo CD Applications (documented, not CI) | open, optional |
 
 **Gate 2:** a merge to `main` in each application repository produces a scanned, signed-provenance image in GHCR and
-an automated bump PR here that passes `manifests-ci`. **Status 2026-11-27:** met for the backend; open for the
-frontend (INF-2.1, F2-12).
+an automated bump PR here that passes `manifests-ci`. **Status 2026-11-27:** met for both (backend #7, frontend #8:
+`atlas-frontend:main-14311115909a` merged into `environments/dev` after `manifests-ci`).
 
 ### Phase 3 — Non-prod platform and dev environment (creates paid resources)
 
@@ -124,9 +124,9 @@ from a staging-verified digest.
 
 | Infra needs / delivers | From / to |
 |---|---|
-| ADR-0007 accepted (INF-2.0, 2026-11-27) | unblocks `atlas` F2-12; backend BE-2.4 done |
+| ADR-0007 accepted (INF-2.0, 2026-11-27) | `atlas` F2-12 and backend BE-2.4 done |
 | Shared scanner decision (INF-2.0) | aligns `atlas` F2-11 (Trivy) and backend BE-1.13 |
-| GitHub App + bump PRs (INF-2.3) | needs the publishing jobs from `atlas` F2-12 and BE-2.4 |
+| GitHub App + bump PRs (INF-2.3) | done with `atlas` F2-12 and BE-2.4 |
 | `atlas-dev` live (INF-3.7) | first deployed backend + frontend; needs Gate 2 images |
 | Staging + e2e (INF-4.2…4.5) | needs backend Gate 3 and BE-4.5; closes `atlas` Gate 9 (F4-6 in staging) |
 | Prod identity (INF-9.1) | with backend Phase 9 BFF; lets `atlas` set `auth: true` |
